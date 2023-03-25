@@ -4,25 +4,27 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-// Token kinds
+// 词符的种类 
 typedef enum {
     TK_RESERVED,
     TK_NUM,
     TK_EOF,
 } TokenKind;
 
-// Type token
+// 词符，表示一个独立的最基本的编译单元
 typedef struct Token Token;
 struct Token {
-    TokenKind kind; // token kind
-    Token *next; // next token
-    long val; // if kind is TK_NUM, val is the number
-    char *str; // token string
+    TokenKind kind; // 词符的种类 
+    Token *next; // 下一个词符的指针。这样所有的词符组成一个链表，可以直接循环遍历。 
+    long val; // 词符的实际值。这里只有数字类型的词符才有值，其他的都是0。未来有其他需要记录实际值的种类时，这一块会扩展成一个联合体。
+    char *str; // 词符对应的文本
 };
 
-Token *token; // current token
-char *user_input; // user input string
+// TODO：为了方便初期实现，这里使用了全局变量，后面会改成局部变量。
+Token *token; // 当前的词符
+char *user_input; // 输入的源码 
 
+// 报告错误信息以及具体位置
 void error_at(char *loc, char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -36,17 +38,7 @@ void error_at(char *loc, char *fmt, ...) {
     exit(1);
 }
     
-
-// report error and exit
-void error(char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    exit(1);
-}
-
-// Consumes the current token if it matches `op`.
+// 如果下一个字符是`op`，则前进一个字符
 bool consume(char op) {
     if (token->kind != TK_RESERVED || token->str[0] != op)
         return false;
@@ -54,14 +46,15 @@ bool consume(char op) {
     return true;
 }
 
-// Ensure that the current token is `op`.
+// 如果下一个字符是`op`，则相当于consume()，否则报错。
 void expect(char op) {
     if (token->kind != TK_RESERVED || token->str[0] != op)
         error_at(token->str, "Not '%c'", op);
     token = token->next;
 }
 
-// Ensure that the current token is TK_NUM.
+// 下一个词符应当是数字（TK_NUM），否则报错。
+// 返回数字的实际值
 long expect_number() {
     if (token->kind != TK_NUM)
         error_at(token->str, "Not a number");
@@ -70,11 +63,12 @@ long expect_number() {
     return val;
 }
 
+// 判断是否已经到达了源码的结尾
 bool at_eof() {
     return token->kind == TK_EOF;
 }
 
-// Create a new token and add it as the next token of `cur`.
+// 创建一个新的词符，并把它和前一个词符连接起来。
 Token *new_token(TokenKind kind, Token *cur, char *str) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
@@ -83,7 +77,7 @@ Token *new_token(TokenKind kind, Token *cur, char *str) {
     return tok;
 }
 
-// Tokenize `p` and returns new tokens.
+// 词法分析的主力函数
 Token *tokenize() {
     char *p = user_input;
     Token head;
@@ -91,34 +85,35 @@ Token *tokenize() {
     Token *cur = &head;
 
     while (*p) {
-        // skip space
+        // 跳过空白字符
         if (isspace(*p)) {
             p++;
             continue;
         }
 
-        // if '+' or '-', create a token
+        // 处理运算符
         if (*p == '+' || *p == '-') {
             cur = new_token(TK_RESERVED, cur, p++);
             continue;
         }
 
-        // if number, create a token
+        // 处理数字
         if (isdigit(*p)) {
             cur = new_token(TK_NUM, cur, p);
             cur->val = strtol(p, &p, 10);
             continue;
         }
 
-        // error: unexpected character
+        // 其他任何情况都算作错误
         error_at(p, "Unexpected character: '%c'", *p);
     }
 
+    // 补充最后一个表示源码结尾的词符
     new_token(TK_EOF, cur, p);
     return head.next;
 }
 
-// main function with args
+// 主函数
 int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "%s: invalid number of arguments\n", argv[0]);
@@ -132,17 +127,17 @@ int main(int argc, char **argv) {
     printf(".global main\n");
     printf("main:\n");
 
-    // first number
+    // 计算器的第一个字符应当是数字
     printf("  mov rax, %ld\n", expect_number());
 
+    // 之后应当是多个`+`和`-`以及数字的序列
     while (!at_eof()) {
         if (consume('+')) {
             printf("  add rax, %ld\n", expect_number());
-            continue;
+        } else {
+            expect('-');
+            printf("  sub rax, %ld\n", expect_number());
         }
-
-        expect('-');
-        printf("  sub rax, %ld\n", expect_number());
     }
 
     printf("  ret\n");
