@@ -21,6 +21,21 @@ struct Token {
 };
 
 Token *token; // current token
+char *user_input; // user input string
+
+void error_at(char *loc, char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+
+    int pos = loc - user_input;
+    fprintf(stderr, "%s\n", user_input);
+    fprintf(stderr, "%*s", pos, ""); // print pos spaces
+    fprintf(stderr, "^ ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
+    
 
 // report error and exit
 void error(char *fmt, ...) {
@@ -42,14 +57,14 @@ bool consume(char op) {
 // Ensure that the current token is `op`.
 void expect(char op) {
     if (token->kind != TK_RESERVED || token->str[0] != op)
-        error("Not '%c'", op);
+        error_at(token->str, "Not '%c'", op);
     token = token->next;
 }
 
 // Ensure that the current token is TK_NUM.
 long expect_number() {
     if (token->kind != TK_NUM)
-        error("Not a number");
+        error_at(token->str, "Not a number");
     long val = token->val;
     token = token->next;
     return val;
@@ -69,7 +84,8 @@ Token *new_token(TokenKind kind, Token *cur, char *str) {
 }
 
 // Tokenize `p` and returns new tokens.
-Token *tokenize(char *p) {
+Token *tokenize() {
+    char *p = user_input;
     Token head;
     head.next = NULL;
     Token *cur = &head;
@@ -95,7 +111,7 @@ Token *tokenize(char *p) {
         }
 
         // error: unexpected character
-        error("Unexpected character: '%c'", *p);
+        error_at(p, "Unexpected character: '%c'", *p);
     }
 
     new_token(TK_EOF, cur, p);
@@ -109,36 +125,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    char *p = argv[1];
+    user_input = argv[1];
+    token = tokenize();
 
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
-    printf("  mov rax, %ld\n", strtol(p, &p, 10));
 
-    while (*p) {
-        // skip space
-        if (*p == ' ') {
-            p++;
+    // first number
+    printf("  mov rax, %ld\n", expect_number());
+
+    while (!at_eof()) {
+        if (consume('+')) {
+            printf("  add rax, %ld\n", expect_number());
             continue;
         }
 
-        // if '+' or '-', do the math
-        if (*p == '+') {
-            p++;
-            printf("  add rax, %ld\n", strtol(p, &p, 10));
-            continue;
-        }
-
-        if (*p == '-') {
-            p++;
-            printf("  sub rax, %ld\n", strtol(p, &p, 10));
-            continue;
-        }
-
-        // error: unexpected character
-        fprintf(stderr, "Unexpected character: '%c'\n", *p);
-        return 1;
+        expect('-');
+        printf("  sub rax, %ld\n", expect_number());
     }
 
     printf("  ret\n");
