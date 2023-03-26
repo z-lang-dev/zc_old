@@ -92,7 +92,7 @@ Token *tokenize() {
         }
 
         // 处理运算符
-        if (*p == '+' || *p == '-') {
+        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
             cur = new_token(TK_RESERVED, cur, p++);
             continue;
         }
@@ -113,6 +113,130 @@ Token *tokenize() {
     return head.next;
 }
 
+/// 语法解析
+/// ====================
+
+// 语法树的节点类型
+typedef enum {
+    ND_ADD, // +
+    ND_SUB, // -
+    ND_MUL, // *
+    ND_DIV, // /
+    ND_NUM, // 整数
+} NodeKind;
+
+// 语法树的节点
+typedef struct Node Node;
+struct Node {
+    NodeKind kind; // 节点类型
+    Node *lhs; // 左边的子节点
+    Node *rhs; // 右边的子节点
+    long val; // 如果是整数类型的节点，这里存储它的值
+};
+
+// 创建一个新的语法树节点
+Node *new_node(NodeKind kind) {
+    Node *node = calloc(1, sizeof(Node));
+    node->kind = kind;
+    return node;
+}
+
+// 创建一个整数类型的语法树节点
+Node *new_num(long val) {
+    Node *node = new_node(ND_NUM);
+    node->val = val;
+    return node;
+}
+
+// 创建一个二元运算符类型的语法树节点
+Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *node = new_node(kind);
+    node->lhs = lhs;
+    node->rhs = rhs;
+    return node;
+}
+
+// EBNF用到的节点，现在的初始节点是expr
+static Node *expr(void);
+static Node *mul(void);
+static Node *primary(void);
+
+// expr = mul ("+" mul | "-" mul)*
+static Node *expr() {
+    Node *node = mul();
+
+    for (;;) {
+        if (consume('+'))
+            node = new_binary(ND_ADD, node, mul());
+        else if (consume('-'))
+            node = new_binary(ND_SUB, node, mul());
+        else
+            return node;
+    }
+}
+
+// mul = primary ("*" primary | "/" primary)*
+static Node *mul() {
+    Node *node = primary();
+    for (;;) {
+        if (consume('*'))
+            node = new_binary(ND_MUL, node, primary());
+        else if (consume('/'))
+            node = new_binary(ND_DIV, node, primary());
+        else
+            return node;
+    }
+}
+
+// primary = "(" expr ")" | num
+static Node *primary() {
+    // 括号表达式
+    if (consume('(')) {
+        Node *node = expr();
+        expect(')');
+        return node;
+    }
+
+    // 数字
+    return new_num(expect_number());
+}
+
+/// 代码生成
+/// ====================
+
+// 生成语法树的代码
+void gen(Node *node) {
+    if (node->kind == ND_NUM) {
+        printf("  push %ld\n", node->val);
+        return;
+    }
+
+    gen(node->lhs);
+    gen(node->rhs);
+
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+
+    switch (node->kind) {
+    case ND_ADD:
+        printf("  add rax, rdi\n");
+        break;
+    case ND_SUB:
+        printf("  sub rax, rdi\n");
+        break;
+    case ND_MUL:
+        printf("  imul rax, rdi\n");
+        break;
+    case ND_DIV:
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+        break;
+    }
+
+    printf("  push rax\n");
+}
+
+
 // 主函数
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -122,24 +246,16 @@ int main(int argc, char **argv) {
 
     user_input = argv[1];
     token = tokenize();
+    Node *node = expr();
 
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
 
-    // 计算器的第一个字符应当是数字
-    printf("  mov rax, %ld\n", expect_number());
+    gen(node);
 
-    // 之后应当是多个`+`和`-`以及数字的序列
-    while (!at_eof()) {
-        if (consume('+')) {
-            printf("  add rax, %ld\n", expect_number());
-        } else {
-            expect('-');
-            printf("  sub rax, %ld\n", expect_number());
-        }
-    }
-
+    // 表达式的结果存放在栈顶，需要pop出来，放在rax寄存器中
+    printf(" pop rax\n");
     printf("  ret\n");
     return 0;
 }
