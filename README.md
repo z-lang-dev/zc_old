@@ -64,7 +64,7 @@ fn add(a int, b int) int {
 }
 ```
 
-#### 和C语言实现ABI级别的互操作。
+#### C语言互操作
 
 Z语言可以直接调用C语言的代码，只要引用对应的模块即可。
 模块到头文件和动静态库文件的关联由编译器搞定（主要订制的时候，可以在工程配置文件里指定，具体格式待设计）。
@@ -357,6 +357,109 @@ fn main {
 }
 ```
 
+#### 控制流
+
+Z语言支持三种控制流语句：`if`、`for`和`when`。
+
+`if`语句与Go类似：
+
+```c
+use io.println
+fn main {
+	let a = 1
+	if a > 0 {
+		println("a > 0")
+	} else if a == 0 {
+		println("a == 0")
+	} else {
+		println("a <= 0 ")
+	}
+}
+```
+`when`相当于C的`switch`，但是借鉴了Kotln的`when`模式匹配语句：
+
+```c
+use os
+use io.println
+
+fn main {
+	when os.GetOS() {
+	is os.WINDOWS:
+		println("windows")
+	is os.LINUX:
+		println("linux")
+	is os.Android:
+		println("android")
+	else:
+		println("unkown os")
+	}
+}
+```
+
+和Go语言类似，`when`语句的每个分支默认情况是隔离的，相当于自带break。
+但是ZC暂时不提供类似`fallthrough`的语句，而是在同一个`is`判断里可以支持多个条件。
+
+`for`有三种形式：
+
+```c
+use io.println
+fn main {
+	// range
+	for i: 0..5 {
+		println(i)
+	}
+
+	// 相当于while
+	mut a = 0
+	for a < 5 {
+		println(a++)
+	}
+
+	// 无限循环+break
+	for {
+		if a > 100 {
+			break
+		}
+	}
+}
+```
+
+其中，第二种相当于`while`的形式其实就是散开些的三段式`for`循环：
+- 初始条件写在`for`语句之前
+- 结束条件在`for`的判断表达式里
+- 逐步语句直接写在循环体内
+
+因此，我考虑不设计三段式`for`循环了。
+
+Go语言的控制流语句本身也都是表达式，其返回值为：
+
+- `if`语句返回值就是执行分支的值，若分支为语句块则实际上是语句块的最后一行
+- `when`返回对一个分支的语句块值。
+- `for`返回一个slice，其中每个元素是语句块的最后一行的值
+
+```c
+use io.println
+
+fn main {
+	let a = if 1>0 {true} else {false} // 相当于C的三元表达式
+
+	// when语句取分支结果
+	let name = "Michael"
+	let nickName = when name {
+	is "William": "Bill"
+	is "Michael": "Mike"
+	is "Elizabeth": "Lisa"
+	else: "Bob"
+	} 
+
+	// for语句会构造出一个slice
+	let arr = for i: 0..5 { i*i } // arr == [0, 1, 4, 9, 16]
+
+	// 如果只想要最后一个元素，则用[-1]即可：
+	println(arr[-1])
+}
+```
+
 #### 接口
 
 
@@ -475,7 +578,7 @@ ZJ的基本类型有：
 // 这是一个接收int类型的静态函数
 fn pow(a int, b int) int {
 	mut r = a
-	for ..b {
+	for 0..b {
 		r *= a
 	}
 	r
@@ -569,7 +672,7 @@ const PI_SQUARE = #pow(PI, 2)
 
 fn pow(x int, y int) int {
 	mut r
-	for ..y {
+	for 0..y {
 		r *= x
 	}
 	r
