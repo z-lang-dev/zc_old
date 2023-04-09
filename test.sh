@@ -36,5 +36,8 @@ assert 1 '1>0'
 assert 0 '5>7'
 assert 1 '4<8'
 assert 0 '5>=10'
+# assign
+assert 13 'a=13;a'
+assert 10 'a=8;b=2;a+b'
 
 echo "OK"

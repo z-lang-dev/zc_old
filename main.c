@@ -9,23 +9,13 @@
 
 // 主函数
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        fprintf(stderr, "%s: invalid number of arguments\n", argv[0]);
-        return 1;
-    }
+    if (argc != 2)
+        error("%s: 应当有2个参数\n", argv[0]);
 
     user_input = argv[1];
     token = tokenize();
-    Node *node = expr();
+    Node *node = program();
 
-    printf(".intel_syntax noprefix\n");
-    printf(".global main\n");
-    printf("main:\n");
-
-    gen(node);
-
-    // 表达式的结果存放在栈顶，需要pop出来，放在rax寄存器中
-    printf(" pop rax\n");
-    printf("  ret\n");
+    codegen(node);
     return 0;
 }

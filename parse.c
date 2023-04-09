@@ -26,7 +26,9 @@ Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 // EBNF用到的节点，现在的初始节点是expr
-Node *expr(void);
+Node *program(void);
+static Node *expr(void);
+static Node *assign(void);
 static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
@@ -34,9 +36,31 @@ static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
 
+// program = expr*
+Node *program(void) {
+    Node head = {};
+    Node *cur = &head;
+
+    while (!at_eof())
+        cur = cur->next = expr();
+    
+    return head.next;
+}
+
 // expr = equality
-Node *expr(void) {
-    return equality();
+static Node *expr(void) {
+    Node *node = assign();
+    consume(";"); // ";"是可选的
+    return node;
+}
+
+// assign = equality ("=" assign)?
+static Node *assign(void) {
+    Node *node = equality();
+
+    if (consume("="))
+        node = new_binary(ND_ASSIGN, node, assign());
+    return node;
 }
 
 // equality = relational ("==" relational | "!=" relational)*
@@ -107,12 +131,22 @@ static Node *unary(void) {
     return primary();
 }
 
+
 // primary = "(" expr ")" | num
 static Node *primary(void) {
     // 括号表达式
     if (consume("(")) {
         Node *node = expr();
         expect(")");
+        return node;
+    }
+
+    // 变量
+    Token *tok = consume_ident();
+    if (tok) {
+        Node *node = calloc(1, sizeof(Node));
+        node->kind = ND_LVAR;
+        node->offset = (tok->str[0] - 'a' + 1) * 8;
         return node;
     }
 

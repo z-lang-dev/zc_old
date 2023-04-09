@@ -13,9 +13,10 @@
 
 // 词符的种类 
 typedef enum {
-    TK_RESERVED,
-    TK_NUM,
-    TK_EOF,
+    TK_RESERVED, // 符号
+    TK_IDENT, // 量名的标识符
+    TK_NUM, // 数字
+    TK_EOF, // 源码结束
 } TokenKind;
 
 // 词符，表示一个独立的最基本的编译单元
@@ -28,10 +29,13 @@ struct Token {
     int len; // 词符的长度
 };
 
+void error(char *fmt, ...);
 // 报告错误信息以及具体位置
 void error_at(char *loc, char *fmt, ...);
 // 如果下一个字符是`op`，则前进一个字符
 bool consume(char *op);
+// 如果下一个词符是标识符，则前进一个词符，并返回这个词符
+Token *consume_ident(void);
 // 如果下一个字符是`op`，则相当于consume()，否则报错。
 void expect(char *op);
 // 下一个词符应当是数字（TK_NUM），否则报错。
@@ -55,6 +59,8 @@ extern char *user_input; // 输入的源码
 
 // 语法树的节点类型
 typedef enum {
+    ND_ASSIGN, // =
+    ND_LVAR, // 局部变量
     ND_ADD, // +
     ND_SUB, // -
     ND_MUL, // *
@@ -70,19 +76,21 @@ typedef enum {
 typedef struct Node Node;
 struct Node {
     NodeKind kind; // 节点类型
+    Node *next; // 下一个节点
     Node *lhs; // 左边的子节点
     Node *rhs; // 右边的子节点
     long val; // 如果是整数类型的节点，这里存储它的值
+    int offset; // 如果是局部变量，这里存储它的偏移量
 };
 
 // 语法解析的起点，暂时只有表达式，未来会扩充为语句或程序
-Node *expr(void);
+Node *program(void);
 
 /// 代码生成
 /// ====================
 
-// 生成语法树的代码
-void gen(Node *node);
+
+void codegen(Node *node);
  
 
 #endif
