@@ -1,7 +1,11 @@
-CFLAGS=-std=c11 -g -static -fno-common
+CFLAGS=-std=c11 -g -static
+SRCS=$(wildcard *.c)
+OBJS=$(SRCS:.c=.o)
 
-zc: main.o
-	$(CC) $(CFLAGS) -o $@ $?
+zc: $(OBJS)
+	$(CC) -o zc $(OBJS) $(LDFLAGS)
+
+$(OBJS): zc.h
 
 test: zc
 	./test.sh
