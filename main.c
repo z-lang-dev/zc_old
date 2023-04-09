@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 // 词符的种类 
 typedef enum {
@@ -18,6 +19,7 @@ struct Token {
     Token *next; // 下一个词符的指针。这样所有的词符组成一个链表，可以直接循环遍历。 
     long val; // 词符的实际值。这里只有数字类型的词符才有值，其他的都是0。未来有其他需要记录实际值的种类时，这一块会扩展成一个联合体。
     char *str; // 词符对应的文本
+    int len; // 词符的长度
 };
 
 // TODO：为了方便初期实现，这里使用了全局变量，后面会改成局部变量。
@@ -39,16 +41,16 @@ void error_at(char *loc, char *fmt, ...) {
 }
     
 // 如果下一个字符是`op`，则前进一个字符
-bool consume(char op) {
-    if (token->kind != TK_RESERVED || token->str[0] != op)
+bool consume(char *op) {
+    if (token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len))
         return false;
     token = token->next;
     return true;
 }
 
 // 如果下一个字符是`op`，则相当于consume()，否则报错。
-void expect(char op) {
-    if (token->kind != TK_RESERVED || token->str[0] != op)
+void expect(char *op) {
+    if (token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len))
         error_at(token->str, "Not '%c'", op);
     token = token->next;
 }
@@ -69,12 +71,17 @@ bool at_eof() {
 }
 
 // 创建一个新的词符，并把它和前一个词符连接起来。
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
     tok->str = str;
+    tok->len = len;
     cur->next = tok;
     return tok;
+}
+
+static bool startsWith(char *p, char *q) {
+    return memcmp(p, q, strlen(q)) == 0;
 }
 
 // 词法分析的主力函数
@@ -91,16 +98,26 @@ Token *tokenize() {
             continue;
         }
 
+        // 处理比较运算符
+        if (startsWith(p, "==") || startsWith(p, "!=") ||
+            startsWith(p, "<=") || startsWith(p, ">=")) {
+            cur = new_token(TK_RESERVED, cur, p, 2);
+            p += 2;
+            continue;
+        }
+
         // 处理运算符
-        if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
-            cur = new_token(TK_RESERVED, cur, p++);
+        if (ispunct(*p)) {
+            cur = new_token(TK_RESERVED, cur, p++, 1);
             continue;
         }
 
         // 处理数字
         if (isdigit(*p)) {
-            cur = new_token(TK_NUM, cur, p);
+            cur = new_token(TK_NUM, cur, p, 0);
+            char *q = p;
             cur->val = strtol(p, &p, 10);
+            cur->len = p - q;
             continue;
         }
 
@@ -109,7 +126,7 @@ Token *tokenize() {
     }
 
     // 补充最后一个表示源码结尾的词符
-    new_token(TK_EOF, cur, p);
+    new_token(TK_EOF, cur, p, 0);
     return head.next;
 }
 
@@ -122,6 +139,10 @@ typedef enum {
     ND_SUB, // -
     ND_MUL, // *
     ND_DIV, // /
+    ND_EQ, // ==
+    ND_NE, // !=
+    ND_LT, // <
+    ND_LE, // <=
     ND_NUM, // 整数
 } NodeKind;
 
@@ -158,18 +179,58 @@ Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
 
 // EBNF用到的节点，现在的初始节点是expr
 static Node *expr(void);
+static Node *equality(void);
+static Node *relational(void);
+static Node *add(void);
 static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
 
-// expr = mul ("+" mul | "-" mul)*
-static Node *expr() {
+// expr = equality
+static Node *expr(void) {
+    return equality();
+}
+
+// equality = relational ("==" relational | "!=" relational)*
+static Node *equality(void) {
+    Node *node = relational();
+
+    for (;;) {
+        if (consume("=="))
+            node = new_binary(ND_EQ, node, relational());
+        else if (consume("!="))
+            node = new_binary(ND_NE, node, relational());
+        else
+            return node;
+    }
+}
+
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+static Node *relational(void) {
+    Node *node = add();
+
+    for (;;) {
+        if (consume("<"))
+            node = new_binary(ND_LT, node, add());
+        else if (consume("<="))
+            node = new_binary(ND_LE, node, add());
+        else if (consume(">"))
+            node = new_binary(ND_LT, add(), node); // 把 a > b 转化成 b < a 来处理
+        else if (consume(">="))
+            node = new_binary(ND_LE, add(), node); // 把 a >= b 转化成 b <= a 来处理
+        else
+            return node;
+    }
+}
+
+// add = mul ("+" mul | "-" mul)*
+static Node *add(void) {
     Node *node = mul();
 
     for (;;) {
-        if (consume('+'))
+        if (consume("+"))
             node = new_binary(ND_ADD, node, mul());
-        else if (consume('-'))
+        else if (consume("-"))
             node = new_binary(ND_SUB, node, mul());
         else
             return node;
@@ -177,12 +238,12 @@ static Node *expr() {
 }
 
 // mul = unary ("*" unary | "/" unary)*
-static Node *mul() {
+static Node *mul(void) {
     Node *node = unary();
     for (;;) {
-        if (consume('*'))
+        if (consume("*"))
             node = new_binary(ND_MUL, node, unary());
-        else if (consume('/'))
+        else if (consume("/"))
             node = new_binary(ND_DIV, node, unary());
         else
             return node;
@@ -190,20 +251,20 @@ static Node *mul() {
 }
 
 // unary = ("+" | "-")? primary
-static Node *unary() {
-    if (consume('+'))
+static Node *unary(void) {
+    if (consume("+"))
         return primary();
-    if (consume('-'))
+    if (consume("-"))
         return new_binary(ND_SUB, new_num(0), primary());
     return primary();
 }
 
 // primary = "(" expr ")" | num
-static Node *primary() {
+static Node *primary(void) {
     // 括号表达式
-    if (consume('(')) {
+    if (consume("(")) {
         Node *node = expr();
-        expect(')');
+        expect(")");
         return node;
     }
 
@@ -240,6 +301,26 @@ void gen(Node *node) {
     case ND_DIV:
         printf("  cqo\n");
         printf("  idiv rdi\n");
+        break;
+    case ND_EQ:
+        printf(" cmp rax, rdi\n");
+        printf(" sete al\n");
+        printf(" movzb rax, al\n");
+        break;
+    case ND_NE:
+        printf(" cmp rax, rdi\n");
+        printf(" setne al\n");
+        printf(" movzb rax, al\n");
+        break;
+    case ND_LT:
+        printf(" cmp rax, rdi\n");
+        printf(" setl al\n");
+        printf(" movzb rax, al\n");
+        break;
+    case ND_LE:
+        printf(" cmp rax, rdi\n");
+        printf(" setle al\n");
+        printf(" movzb rax, al\n");
         break;
     }
 

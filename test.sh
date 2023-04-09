@@ -31,5 +31,10 @@ assert 3 '(10-4)/2'
 # unary
 assert 25 '-5*-5'
 assert 1 '-3+4'
+# compare
+assert 1 '1>0'
+assert 0 '5>7'
+assert 1 '4<8'
+assert 0 '5>=10'
 
 echo "OK"
