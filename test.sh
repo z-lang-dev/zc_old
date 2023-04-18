@@ -18,7 +18,7 @@ assert() {
 }
 
 # single number
-assert 0 0
+assert 0 '0'
 assert 1 1
 assert 41 41
 # add and sub
@@ -38,6 +38,6 @@ assert 1 '4<8'
 assert 0 '5>=10'
 # assign
 assert 13 'a=13;a'
-assert 10 'a=8;b=2;a+b'
+assert 10 'a1=8;b2=2;a1+b2'
 
 echo "OK"

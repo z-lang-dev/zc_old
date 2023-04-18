@@ -23,7 +23,42 @@ void error_at(char *loc, char *fmt, ...) {
     fprintf(stderr, "\n");
     exit(1);
 }
-    
+
+void print_token(Token* tok) {
+    printf("{TOKEN:");
+    switch (tok->kind) {
+    case TK_NEWLINE:
+        printf("NEWLINE");
+        break;
+    case TK_SEMI:
+        printf("SEMI");
+        break;
+    case TK_EOF:
+        printf("EOF");
+        break;
+    case TK_NUM:
+        printf("NUM");
+        break;
+    case TK_IDENT:
+        printf("IDENT");
+        break;
+    case TK_RESERVED:
+        printf("RESERVED");
+        break;
+    default:
+        printf("UNKNOWN");
+    }
+    printf(",'%.*s'}\n", tok->len, tok->str);
+}
+
+void print_tokens() {
+  Token *cur = token;
+  while (cur) {
+    print_token(cur);
+    cur = cur->next;
+  }
+}
+
 bool consume(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len))
         return false;
@@ -37,6 +72,18 @@ Token *consume_ident(void) {
     Token *tok = token;
     token = token->next;
     return tok;
+}
+
+void expectStmtSep() {
+    // ';'
+    if (token->kind == TK_SEMI || token->kind == TK_NEWLINE) {
+        token = token->next;
+        return;
+    }
+    if (token->kind == TK_EOF) {
+        return;
+    }
+    error_at(token->str, "Not a statement seperator");
 }
 
 void expect(char *op) {
@@ -66,8 +113,21 @@ Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
     return tok;
 }
 
-static bool startsWith(char *p, char *q) {
+static bool starts_with(char *p, char *q) {
     return memcmp(p, q, strlen(q)) == 0;
+}
+
+// 暂时只支持ascii字母，未来需要扩充到Unicode字母
+static bool is_alpha(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+static bool is_alnum(char c) {
+    return is_alpha(c) || ('0' <= c && c <= '9');
+}
+
+static bool is_space(char c) {
+    return c == ' ' || c == '\t';
 }
 
 Token *tokenize() {
@@ -78,20 +138,41 @@ Token *tokenize() {
 
     while (*p) {
         // 跳过空白字符
-        if (isspace(*p)) {
+        if (is_space(*p)) {
             p++;
             continue;
         }
 
-        // 处理标识符
-        if (isalpha(*p)) {
-            cur = new_token(TK_IDENT, cur, p++, 1);
+        if (*p == ';') {
+            cur = new_token(TK_SEMI, cur, p++, 1);
+            continue;
+        }
+
+        if (*p == '\n') {
+            cur = new_token(TK_NEWLINE, cur, p++, 1);
+            continue;
+        }
+
+        // 处理关键字，现在简单地每个关键字单独判断，未来增加更多关键字时需要准备一个判别函数
+        if (starts_with(p, "return") && !is_alnum(p[6])) {
+            cur = new_token(TK_RESERVED, cur, p, 6);
+            p += 6;
+            continue;
+        }
+
+        // 处理多字符的标识符，标识符以字母开头，后面接字母或数字
+        if (is_alpha(*p)) {
+            char *start = p++;
+            while (is_alnum(*p)) {
+                p++;
+            }
+            cur = new_token(TK_IDENT, cur, start, p - start);
             continue;
         }
 
         // 处理比较运算符
-        if (startsWith(p, "==") || startsWith(p, "!=") ||
-            startsWith(p, "<=") || startsWith(p, ">=")) {
+        if (starts_with(p, "==") || starts_with(p, "!=") ||
+            starts_with(p, "<=") || starts_with(p, ">=")) {
             cur = new_token(TK_RESERVED, cur, p, 2);
             p += 2;
             continue;

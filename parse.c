@@ -1,32 +1,65 @@
 #include "zc.h"
 
+Var *locals;
+
+static Var *find_var(Token *tok) {
+    // printf("looking for var %.*s\n", tok->len, tok->str);
+    for (Var *var = locals; var; var = var->next)
+        if (strlen(var->name) == tok->len && !strncmp(tok->str, var->name, tok->len))
+            return var;
+    return NULL;
+}
+
 /// 语法解析
 /// ====================
 
 // 创建一个新的语法树节点
-Node *new_node(NodeKind kind) {
+static Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
     return node;
 }
 
 // 创建一个整数类型的语法树节点
-Node *new_num(long val) {
+static Node *new_num(long val) {
     Node *node = new_node(ND_NUM);
     node->val = val;
     return node;
 }
 
 // 创建一个二元运算符类型的语法树节点
-Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+static Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
     Node *node = new_node(kind);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
+static Node *new_unary(NodeKind kind, Node *expr) {
+    Node *node = new_node(kind);
+    node->lhs = expr;
+    return node;
+}
+
+// 创建一个局部变量类型的语法树节点
+static Node *new_var_node(Var *var) {
+    Node *node = new_node(ND_VAR);
+    node->var = var;
+    return node;
+}
+
+//
+static Var *new_lvar(char *name) {
+    Var *var = calloc(1, sizeof(Var));
+    var->next = locals;
+    var->name = name;
+    locals = var;
+    return var;
+}
+
 // EBNF用到的节点，现在的初始节点是expr
-Node *program(void);
+Function *program(void);
+static Node *stmt(void);
 static Node *expr(void);
 static Node *assign(void);
 static Node *equality(void);
@@ -36,19 +69,40 @@ static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
 
-// program = expr*
-Node *program(void) {
+// program = stmt*
+Function *program(void) {
+    locals = NULL;
+
     Node head = {};
     Node *cur = &head;
 
-    while (!at_eof())
-        cur = cur->next = expr();
-    
-    return head.next;
+    while (!at_eof()) {
+        cur->next = stmt();
+        cur = cur->next;
+    }
+
+    Function *prog = calloc(1, sizeof(Function));
+    prog->node = head.next;
+    prog->locals = locals;
+    return prog;
+}
+
+// stmt = "return" expr | expr
+static Node *stmt(void) {
+    if (consume("return")) {
+        Node *node = new_unary(ND_RETURN, expr());
+        expectStmtSep();
+        return node;
+    }
+
+    Node *node = new_unary(ND_EXPR_STMT, expr());
+    expectStmtSep();
+    return node;
 }
 
 // expr = equality
 static Node *expr(void) {
+    
     Node *node = assign();
     consume(";"); // ";"是可选的
     return node;
@@ -131,7 +185,6 @@ static Node *unary(void) {
     return primary();
 }
 
-
 // primary = "(" expr ")" | num
 static Node *primary(void) {
     // 括号表达式
@@ -144,10 +197,13 @@ static Node *primary(void) {
     // 变量
     Token *tok = consume_ident();
     if (tok) {
-        Node *node = calloc(1, sizeof(Node));
-        node->kind = ND_LVAR;
-        node->offset = (tok->str[0] - 'a' + 1) * 8;
-        return node;
+        // printf("LOOKING FOR var...");
+        // print_token(tok);
+        Var *var = find_var(tok);
+        if (!var) {
+            var = new_lvar(strndup(tok->str, tok->len));
+        }
+        return new_var_node(var);
     }
 
     // 数字

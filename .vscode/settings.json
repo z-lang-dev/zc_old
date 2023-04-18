@@ -9,6 +9,8 @@
         "stdexcept": "c",
         "streambuf": "c",
         "functional": "c",
-        "zc.h": "c"
+        "zc.h": "c",
+        "cctype": "c",
+        "string.h": "c"
     }
 }
