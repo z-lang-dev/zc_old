@@ -89,6 +89,7 @@ typedef enum {
     ND_ASSIGN, // =
     ND_RETURN, // return
     ND_EXPR_STMT, // 表达式语句
+    ND_IF, // if表达式
 } NodeKind;
 
 // 语法树的节点
@@ -98,8 +99,14 @@ struct Node {
     Node *next; // 下一个节点
     Node *lhs; // 左边的子节点
     Node *rhs; // 右边的子节点
-    long val; // 如果是整数类型的节点，这里存储它的值
-    Var *var; // 如果是局部变量，这里存储它的变量信息
+
+    // if语句对应的子节点
+    Node *cond;
+    Node *then;
+    Node *els;
+
+    long val; // ND_NUM对应的值
+    Var *var; // ND_VAR对应的变量
 };
 
 typedef struct Function Function;

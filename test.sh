@@ -39,5 +39,10 @@ assert 0 '5>=10'
 # assign
 assert 13 'a=13;a'
 assert 10 'a1=8;b2=2;a1+b2'
+# if
+assert 3 'if (0) 2; 3;'
+assert 3 'if (1-1) 2; 3;'
+assert 2 'if (1) return 2; 3;'
+assert 2 'if (1+1) return 2; 3;'
 
 echo "OK"
