@@ -22,6 +22,8 @@ typedef enum {
     TK_EOF, // 源码结束
     TK_NEWLINE, // 换行
     TK_SEMI, // ';'
+    TK_LCURLY, // '{'
+    TK_RCURLY, // '}'
 } TokenKind;
 
 // 词符，表示一个独立的最基本的编译单元
@@ -39,12 +41,16 @@ void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
 void print_token(Token *tok);
 void print_tokens();
+// 探测下个词符是否符合kind种类
+bool peek(TokenKind kind);
 // 如果下一个字符是`op`，则前进一个字符
 bool consume(char *op);
 // 如果下一个词符是标识符，则前进一个词符，并返回这个词符
 Token *consume_ident(void);
 // 如果下一个字符是`op`，则相当于consume()，否则报错。
 void expect(char *op);
+// 如果下一个词符是kind种类，则前进一个词符，否则报错。
+void expect_tok(TokenKind kind);
 // 语句应当以';'或'\n'结尾
 void expectStmtSep();
 // 下一个词符应当是数字（TK_NUM），否则报错。
@@ -89,7 +95,9 @@ typedef enum {
     ND_ASSIGN, // =
     ND_RETURN, // return
     ND_EXPR_STMT, // 表达式语句
-    ND_IF, // if表达式
+    ND_IF, // if语句
+    ND_FOR, // for语句
+    ND_EMPTY,
 } NodeKind;
 
 // 语法树的节点
@@ -100,7 +108,7 @@ struct Node {
     Node *lhs; // 左边的子节点
     Node *rhs; // 右边的子节点
 
-    // if语句对应的子节点
+    // if和for语句对应的子节点
     Node *cond;
     Node *then;
     Node *els;

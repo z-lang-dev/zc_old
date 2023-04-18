@@ -59,6 +59,10 @@ void print_tokens() {
   }
 }
 
+bool peek(TokenKind kind) {
+    return token->kind == kind;
+}
+
 bool consume(char *op) {
     if (token->kind != TK_RESERVED || strlen(op) != token->len || memcmp(token->str, op, token->len))
         return false;
@@ -75,15 +79,22 @@ Token *consume_ident(void) {
 }
 
 void expectStmtSep() {
+    TokenKind kind = token->kind;
     // ';'
-    if (token->kind == TK_SEMI || token->kind == TK_NEWLINE) {
+    if (kind == TK_SEMI || kind == TK_NEWLINE) {
         token = token->next;
         return;
     }
-    if (token->kind == TK_EOF) {
+    if (kind == TK_RCURLY || kind == TK_EOF) {
         return;
     }
     error_at(token->str, "Not a statement seperator");
+}
+
+void expect_tok(TokenKind kind) {
+    if (token->kind != kind)
+        error_at(token->str, "Not '%c'", kind);
+    token = token->next;
 }
 
 void expect(char *op) {
@@ -132,7 +143,7 @@ static bool is_space(char c) {
 
 static char *starts_with_reserved(char *p) {
     // keyword
-    static char *kw[] = {"return", "if", "else"};
+    static char *kw[] = {"return", "if", "else", "for"};
 
     for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
         int len = strlen(kw[i]);
@@ -189,6 +200,16 @@ Token *tokenize() {
                 p++;
             }
             cur = new_token(TK_IDENT, cur, start, p - start);
+            continue;
+        }
+
+        // 处理{}
+        if (*p == '{') {
+            cur = new_token(TK_LCURLY, cur, p++, 1);
+            continue;
+        }
+        if (*p == '}') {
+            cur = new_token(TK_RCURLY, cur, p++, 1);
             continue;
         }
 

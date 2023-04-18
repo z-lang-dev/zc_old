@@ -34,6 +34,7 @@ static void gen(Node *node) {
         printf("  push %ld\n", node->val);
         return;
     case ND_EXPR_STMT:
+        if (node->lhs->kind == ND_EMPTY) return;
         gen(node->lhs);
         printf("  add rsp, 8\n");
         return;
@@ -46,7 +47,7 @@ static void gen(Node *node) {
         gen(node->rhs);
         store();
         return;
-    case ND_IF:
+    case ND_IF: {
         int seq = labelseq++;
         if (node->els) {
             gen(node->cond);
@@ -66,6 +67,21 @@ static void gen(Node *node) {
             gen(node->then);
             printf(".L.end.%d:\n", seq);
         }
+        return;
+    }
+    case ND_FOR: {
+        int seq = labelseq++;
+        printf("  .L.begin.%d:\n", seq);
+        gen(node->cond);
+        printf("  pop rax\n");
+        printf("  cmp rax, 0\n");
+        printf("  je  .L.end.%d\n", seq);
+        gen(node->then);
+        printf("  jmp .L.begin.%d\n", seq);
+        printf(".L.end.%d:\n", seq);
+        return;
+    }
+    case ND_EMPTY:
         return;
     case ND_RETURN:
         gen(node->lhs);
@@ -95,24 +111,24 @@ static void gen(Node *node) {
         printf("  idiv rdi\n");
         break;
     case ND_EQ:
-        printf(" cmp rax, rdi\n");
-        printf(" sete al\n");
-        printf(" movzb rax, al\n");
+        printf("  cmp rax, rdi\n");
+        printf("  sete al\n");
+        printf("  movzb rax, al\n");
         break;
     case ND_NE:
-        printf(" cmp rax, rdi\n");
-        printf(" setne al\n");
-        printf(" movzb rax, al\n");
+        printf("  cmp rax, rdi\n");
+        printf("  setne al\n");
+        printf("  movzb rax, al\n");
         break;
     case ND_LT:
-        printf(" cmp rax, rdi\n");
-        printf(" setl al\n");
-        printf(" movzb rax, al\n");
+        printf("  cmp rax, rdi\n");
+        printf("  setl al\n");
+        printf("  movzb rax, al\n");
         break;
     case ND_LE:
-        printf(" cmp rax, rdi\n");
-        printf(" setle al\n");
-        printf(" movzb rax, al\n");
+        printf("  cmp rax, rdi\n");
+        printf("  setle al\n");
+        printf("  movzb rax, al\n");
         break;
     }
 

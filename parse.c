@@ -90,8 +90,17 @@ static Node *expr_stmt(void) {
     return new_unary(ND_EXPR_STMT, expr());
 }
 
+static Node *block(void) {
+    expect_tok(TK_LCURLY);
+    // 暂时只支持单个语句的代码块
+    Node *node = stmt();
+    expect_tok(TK_RCURLY);
+    return node;
+}
+
 // stmt = "return" expr 
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "for" expr block
 //      | expr
 static Node *stmt(void) {
     if (consume("return")) {
@@ -110,6 +119,20 @@ static Node *stmt(void) {
             node->els = stmt();
         }
         return node;
+    }
+
+    if (consume("for")) {
+        Node *node = new_node(ND_FOR);
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        node->then = block();
+        return node;
+    }
+
+    if (consume(";")) {
+        printf(";; found empty stmt\n");
+        return new_node(ND_EMPTY);
     }
 
     Node *node = expr_stmt();
@@ -222,6 +245,9 @@ static Node *primary(void) {
         }
         return new_var_node(var);
     }
+
+    if (peek(TK_SEMI))
+        return new_node(ND_EMPTY);
 
     // 数字
     return new_num(expect_number());

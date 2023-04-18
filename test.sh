@@ -44,5 +44,7 @@ assert 3 'if (0) 2; 3;'
 assert 3 'if (1-1) 2; 3;'
 assert 2 'if (1) return 2; 3;'
 assert 2 'if (1+1) return 2; 3;'
+# for
+assert 10 'i=0; for(i<10) {i=i+1}; i'
 
 echo "OK"
