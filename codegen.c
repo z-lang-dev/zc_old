@@ -1,21 +1,25 @@
 #include "zc.h"
 
+
+// 根据变量的offset获取变量的地址。（变量地址存放在bp-offset的位置）
 static void gen_addr(Node *node) {
     if (node->kind == ND_VAR) {
         printf("  lea rax, [rbp-%d]\n", node->var->offset);
         printf("  push rax\n");
         return;
     }
-
     error("not a lvalue");
 }
 
+// 根据rax中的地址，加载变量的值，并压到栈上。
 static void load(void) {
     printf("  pop rax\n");
     printf("  mov rax, [rax]\n");
     printf("  push rax\n");
 }
 
+// 将栈顶的值存放到栈次顶的地址对应的内存中。再放回栈顶。
+// 例如：a = 13这个表达式，栈的情况是[13, &a]，最后栈顶是[13]
 static void store(void) {
     printf("  pop rdi\n");
     printf("  pop rax\n");

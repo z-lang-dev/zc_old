@@ -3,7 +3,6 @@
 Var *locals;
 
 static Var *find_var(Token *tok) {
-    // printf("looking for var %.*s\n", tok->len, tok->str);
     for (Var *var = locals; var; var = var->next)
         if (strlen(var->name) == tok->len && !strncmp(tok->str, var->name, tok->len))
             return var;
