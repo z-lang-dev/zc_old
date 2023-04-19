@@ -19,14 +19,24 @@ assert() {
 
 # 下面的测试用例测，为了方便测试最新的功能，顺序是倒着放的，即最新的功能在最上方。
 
+# 代码块
+assert 4 '{4}'
+assert 3 '{1; 2; 3}'
+assert 3 'a = {4; 5; 3}; a'
+assert 2 'if (1) {2}'
+assert 5 'i = 0; for i < 5 {i=i+1}'
+assert 5 'b = if (1) {5}; b'
+assert 20 'i=0; for i<10 {i=i+1; 2*i}'
+
 # 简单的for循环
 assert 10 'i=0; for i<10 {i=i+1}; i'
 
 # 简单的if条件语句，不包括else分支
-assert 3 'if 0 {2}; 3;'
+assert 3 'if 0 {2}; 3'
 assert 3 'if 1-1 {2}; 3;'
 assert 2 'if 1 {return 2};3;'
 assert 2 'if 1+1 {return 2};3;'
+assert 2 'if 1 {2}'
 
 # 变量赋值
 assert 13 'a=13;a'

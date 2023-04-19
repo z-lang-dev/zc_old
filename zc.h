@@ -47,6 +47,8 @@ bool peek(TokenKind kind);
 bool consume(char *op);
 // 如果下一个词符是标识符，则前进一个词符，并返回这个词符
 Token *consume_ident(void);
+// 如果下一个词符种类是kind，则前进一个词符并返回true，否则返回false
+bool consume_tok(TokenKind kind);
 // 如果下一个字符是`op`，则相当于consume()，否则报错。
 void expect(char *op);
 // 如果下一个词符是kind种类，则前进一个词符，否则报错。
@@ -97,6 +99,7 @@ typedef enum {
     ND_EXPR_STMT, // 表达式语句
     ND_IF, // if语句
     ND_FOR, // for语句
+    ND_BLOCK, // 代码块
     ND_EMPTY,
 } NodeKind;
 
@@ -112,6 +115,9 @@ struct Node {
     Node *cond;
     Node *then;
     Node *els;
+
+    // 代码块的内容
+    Node *body;
 
     long val; // ND_NUM对应的值
     Var *var; // ND_VAR对应的变量

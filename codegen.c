@@ -35,8 +35,14 @@ static void gen(Node *node) {
         return;
     case ND_EXPR_STMT:
         if (node->lhs->kind == ND_EMPTY) return;
+        // 生成表达式的代码
         gen(node->lhs);
-        printf("  add rsp, 8\n");
+        // 如果表达式不是当前层级的最后一行，需要pop掉它遗留在栈顶的值。
+        if (node->next && node->next->kind != ND_RETURN) {
+            printf("  # pop expr_stmt result when it's not the last stmt of a scope\n");
+            printf("  # DEUBG: Next node: %d\n", node->next->kind);
+            printf("  add rsp, 8\n");
+        }
         return;
     case ND_VAR:
         gen_addr(node);
@@ -46,6 +52,11 @@ static void gen(Node *node) {
         gen_addr(node->lhs);
         gen(node->rhs);
         store();
+        return;
+    case ND_BLOCK:
+        for (Node *n = node->body; n; n = n->next) {
+            gen(n);
+        }
         return;
     case ND_IF: {
         int seq = labelseq++;
@@ -84,7 +95,7 @@ static void gen(Node *node) {
     case ND_EMPTY:
         return;
     case ND_RETURN:
-        gen(node->lhs);
+        if (node->lhs) gen(node->lhs);
         printf("  pop rax\n");
         printf("  jmp .L.return\n");
         return;
@@ -148,9 +159,6 @@ void codegen(Function *prog) {
     printf("  sub rsp, %d\n", prog->stack_size);
 
     for (Node *n=prog->node; n; n=n->next) {
-        if (!n->next) {
-            n->kind = ND_RETURN;
-        }
         gen(n);
     }
 

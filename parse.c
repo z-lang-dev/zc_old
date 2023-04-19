@@ -80,6 +80,13 @@ Function *program(void) {
         cur = cur->next;
     }
 
+    // 最后一条语句需要加上return，否则程序没法正常返回。
+    // TODO:未来有函数之后，函数的最后一句也要做这个操作。
+    if (cur->kind != ND_RETURN) {
+        Node *ret = new_node(ND_RETURN);
+        cur->next = ret;
+    }
+
     Function *prog = calloc(1, sizeof(Function));
     prog->node = head.next;
     prog->locals = locals;
@@ -92,15 +99,24 @@ static Node *expr_stmt(void) {
 
 static Node *block(void) {
     expect_tok(TK_LCURLY);
+    Node head = {};
+    Node *cur = &head;
+
+    while (!consume_tok(TK_RCURLY)) {
+        cur->next = stmt();
+        cur = cur->next;
+    }
+
     // 暂时只支持单个语句的代码块
-    Node *node = stmt();
-    expect_tok(TK_RCURLY);
+    Node *node = new_node(ND_BLOCK);
+    node->body = head.next;
     return node;
 }
 
 // stmt = "return" expr 
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" expr block
+//      | "{" stmt* "}"
 //      | expr
 static Node *stmt(void) {
     if (consume("return")) {
@@ -131,14 +147,17 @@ static Node *stmt(void) {
         return new_node(ND_EMPTY);
     }
 
+    if (peek(TK_LCURLY)) {
+        return block();
+    }
+
     Node *node = expr_stmt();
     expectStmtSep();
     return node;
 }
 
-// expr = equality
+// expr = assign
 static Node *expr(void) {
-    
     Node *node = assign();
     consume(";"); // ";"是可选的
     return node;
@@ -223,6 +242,10 @@ static Node *unary(void) {
 
 // primary = "(" expr ")" | num
 static Node *primary(void) {
+    // 代码块
+    if (peek(TK_LCURLY)) {
+        return block();
+    }
     // 括号表达式
     if (consume("(")) {
         Node *node = expr();
@@ -246,6 +269,10 @@ static Node *primary(void) {
         return new_node(ND_EMPTY);
 
     // 数字
-    return new_num(expect_number());
+    if (peek(TK_NUM))
+        return new_num(expect_number());
+
+    // 普通表达式
+    return stmt();
 }
 

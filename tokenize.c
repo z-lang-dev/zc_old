@@ -70,6 +70,13 @@ bool consume(char *op) {
     return true;
 }
 
+
+bool consume_tok(TokenKind kind) {
+    if (token->kind != kind) return false;
+    token = token->next;
+    return true;
+}
+
 Token *consume_ident(void) {
     if (token->kind != TK_IDENT)
         return NULL;
@@ -77,6 +84,7 @@ Token *consume_ident(void) {
     token = token->next;
     return tok;
 }
+
 
 void expectStmtSep() {
     TokenKind kind = token->kind;
