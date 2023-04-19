@@ -111,21 +111,17 @@ static Node *stmt(void) {
 
     if (consume("if")) {
         Node *node = new_node(ND_IF);
-        expect("(");
         node->cond = expr();
-        expect(")");
-        node->then = stmt();
+        node->then = block();
         if (consume("else")) {
-            node->els = stmt();
+            node->els = block();
         }
         return node;
     }
 
     if (consume("for")) {
         Node *node = new_node(ND_FOR);
-        expect("(");
         node->cond = expr();
-        expect(")");
         node->then = block();
         return node;
     }
