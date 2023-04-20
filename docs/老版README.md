@@ -1,41 +1,36 @@
 ## Z语言编译器
 
-zc是Z语言的编译器和解释器。 
+zc是用C语言实现的Z语言编译器。 
 
-zc的初版用C语言开发，将来会改为用Z语言本身实现。
-zc支持暂时只支持Linux，将来会添加其他平台的支持。
+zc工程使用C语言开发，暂时只支持Linux平台。
 
-本工程有一本配套开源书籍[《脚踏实地Z语言》](https://gitee.com/jiaota/jiaota-z)，详细记录Z语言设计与开发的每一个步骤。
+zc工程初始的代码是从[ChibiCC](https://github.com/rui314/chibicc)fork过来的，并根据Z语言的特性进行修改。
 
-本工程还处于非常早期的筹备和尝试阶段。但由于本工程与配套书籍都遵循**增量开发**方法，每一步都是相对完整的。
+将来，zc会参考LCC、TCC等其他开源C编译器的实现，添加更多的特性。
 
-zc早期代码同时参考[ChibiCC](https://github.com/rui314/chibicc)
-和[clox](https://github.com/munificent/craftinginterpreters/tree/master/c)，
-分别用于实现类C的静态特性和类Lox的动态特性。
+## 语言特性
 
-## Z语言特性
+Z语言规划为两个版本：
 
-我把Z语言设计为一门通用编程语言，它的主要独特之处在于：
+- ZC：更好的C语言。用C语言实现。
+- Z：更好的D语言。用ZC语言实现。
 
-- **动静皆宜**。Z语言同时支持静态编译（AOT）、动态解释（Interpreter），未来还会添加及时编译（JIT）功能。Z语言既支持静态类型检查，也支持动态类型数据。
-- **编译期脚本**。利用动静结合的特性，将解释器嵌入到编译流程之中，实现编译期脚本执行功能。这个特性可以用来实现泛型、宏和模板等高阶语言特性。
-- **面向场景编程**。针对不同的开发场景（Scenario），编译期提供不同的语言特性组合（即支撑集，Support Set）。
-- **组合与接口**。Z语言的类型体系由组合（Composition）和行为接口（Duck Typing）配合完成。Z不支持继承，而是利用编译期脚本来实现编译期多态和运行时多态。
-- **层次化内存管理**。利用场景编程特性，在不同场景中支持不同的内存管理策略。包括：手动管理、自动释放、智能指针、引用计数、垃圾回收和时间线管理。
+ZC是Z语言的一个子集，类似于C语言和C++的关系。
+因此我仍然总称为Z语言。
 
-有了这些特性，Z语言既可以用于底层的高性能开发，也可以用于应用层的动态应用开发。这是我的设计目标。
+语言特性规划如下：
 
-Z语言的驱动应用是类似[RT-Thread](https://www.rt-thread.org/)的嵌入式系统（筹备中），以及系统内的应用开发框架。
-
-## 语法展示
-
-注：下面的代码尚未实现，只是我的初步设计的展示。
+### ZC
 
 #### 基本语法
 
+ZC的语法类似C，但会参考Go/Kotlin/D/Rust等语言略作调整。
+
+下面是一段ZC语法的示例，可以初步感受一下Z语言的风格。
+
 ```c
 // 模块化采用D的方式，引用模块的关键字是use。
-use io.[println, open, W]
+use io.println
 
 // 常量定义用const关键字。
 // 浮点数的字面值需要加上f后缀。
@@ -43,12 +38,12 @@ const PI = 3.1415926f
 
 // 函数定义采用类似Rust的fn关键字。
 // 参数为空时不需要'()'。
-mfn main { 
+fn main { 
 	// 函数调用与C一致。
 	println("Hello, world!") // 语句结尾不需要';'。
 
-	// Z语言的字符串支持嵌入。这里PI值被直接嵌入到字符串里了。
-	println("Here is pi: $PI")
+	// println和printf差不多，但会自动添加换行符。
+	println("Here is pi: %f", PI)
 
 	// 标量是不可变的，用let声明。
 	// 标量的类型标识和Go一致，不需要冒号。
@@ -58,37 +53,14 @@ mfn main {
 	// 变量用mut声明。
 	mut b = 5 // 支持基本的类型推导。
 	b = b * 2 // 正确！b是可变量。
-	b = "Z语言" // 错误！不能改变变量的类型。
 
-	// 动态类型变量，在Z语言里被称为“幻量”
-	// 幻量用var声明。
-	var c = 5
-	c = "Z语言" // 正确！c是幻量，类型和值都可以改变
-
-	println("a+b is $add(a, b)")
+	println("a+b is %d:", add(a, b))
 }
 
-// 函数定义和Go比较像。Z语言的函数是“纯函数”，参数和返回值都必须是不可变幻的，且内部不能有副作用，即只能调用纯函数。所有的纯函数都可以在编译期调用。函数的关键字是`fn`。
+// 函数定义和Go比较像
 fn add(a int, b int) int {
 	// 代码块的最后一个语句即是返回值
 	a + b
-}
-
-// 如果想添加副作用，就使用“变函数”（mutable function），关键字是 `mfn`，即Mutable Function。
-mfn writeFile(name str, s str) bool {
-	let f = open(name, W) 
-	on(exit) {
-		f.close()
-		return false
-	}
-	f.write(s)
-	return true
-}
-
-// 幻函数则相当于JS之类动态语言里的函数，不需要指定参数或返回类型。关键字是`vfn`，即Variant Function。
-vfn alert(message) {
-	message = "Alert!! $message"
-	println(message)
 }
 ```
 
@@ -101,7 +73,7 @@ Z语言可以直接调用C语言的代码，只要引用对应的模块即可。
 // 调用C的库函数需要引用c模块下的各个子模块
 use c.stdio.printf
 
-mfn main {
+fn main {
 	// 调用C语言代码时，需要用unsafe代码块包起来
 	unsafe {
 		printf("Hello, world!\n")
@@ -162,7 +134,7 @@ Z语言的基本类型有：
 下面是一些基本类型的示例：
 
 ```c
-mfn main {
+fn main {
 	let a = 10 // 整数字面量的默认类型是int
 	let b i64 = 655537 // 可以指定具体的整数类型
 	let c u64 = 0x123128ABCD // 0x开头的数字表示十六进制格式
@@ -198,7 +170,7 @@ Z语言的复合类型有：
 下面是一些示例：
 
 ```c
-mfn main {
+fn main {
 	// array
 	let ar [5]int = int[1, 2, 3, 4, 5] // 静态数组，类型标识和Go一致，字面量不同
 	let ar1 []int = [1, 2, 3, 4, 5] // 动态数组
@@ -272,7 +244,7 @@ fn Message.str() str {
 	format("id: %d, content: %s", .id, .content)
 }
 
-mfn main {
+fn main {
 	mut m = Message{id: 1, content: "hello"}
 	println(m.str()) // id: 1, content: hello
 }
@@ -322,7 +294,7 @@ type Person {
 	name str,
 }
 
-mfn main {
+fn main {
 	let p = Person{name: "Zack"}
 	p.grab(Thing{name: "pen"}) // Person实例可以直接调用Hand.grab方法
 	p.sniff() // 也可以直接调用Nose.sniff方法
@@ -374,7 +346,7 @@ type Point {
 	y int,
 }
 
-mfn main {
+fn main {
 	mut a = 10
 	let p = &a
 	*p = 15 // 效果和`a = 15`一致
@@ -393,7 +365,7 @@ Z语言支持三种控制流语句：`if`、`for`和`when`。
 
 ```c
 use io.println
-mfn main {
+fn main {
 	let a = 1
 	if a > 0 {
 		println("a > 0")
@@ -410,7 +382,7 @@ mfn main {
 use os
 use io.println
 
-mfn main {
+fn main {
 	when os.GetOS() {
 	is os.WINDOWS:
 		println("windows")
@@ -431,7 +403,7 @@ mfn main {
 
 ```c
 use io.println
-mfn main {
+fn main {
 	// range
 	for i: 0..5 {
 		println(i)
@@ -468,7 +440,7 @@ Go语言的控制流语句本身也都是表达式，其返回值为：
 ```c
 use io.println
 
-mfn main {
+fn main {
 	let a = if 1>0 {true} else {false} // 相当于C的三元表达式
 
 	// when语句取分支结果
@@ -529,7 +501,7 @@ Eagle.flap() {
 	println("phew~~")
 }
 
-mfn main {
+fn main {
 	let birds []Bird = [&Duck{}, &Chicken{}, &Eagle{}]
 	birds[0].flap() // flap~~
 	birds[1].flap() // cluck~~
@@ -537,15 +509,38 @@ mfn main {
 }
 ```
 
-#### 动态脚本
+### Z
 
-Z语言也支持脚本格式，文件名后缀为`.zs`，即Z Script。
+等ZC编译器实现了完整的功能之后，尝试将它的C语言代码翻译为ZC，编译通过之后，ZC就实现自举了。
 
+之后，用ZC语言来扩充ZC编译器，使之实现下述的Z语言高阶特性：
 
-```zs
-#!/usr/bin/env zc
+1. **动静皆宜**（Static and Dynamic Synergy）。增加动态语言子系统，类似Javascript或Python，我称之为ZJ。为ZJ增加Javascript后端，可以直接介入JS生态。
+1. **面向场景编程**（Scenario Oriented Programming, SOP）。根据不同的实用场景，编译器提供不同的语言特性组合（即不同的语言子集）。例如，在嵌入式场景中，编译器将限制只能使用ZC子集；而在脚本或前端场景下，支持ZJ子集。
+3. **编译期执行**。（Compile Time Code Execution）。把动态解释器集成到编译流程之中，实现编译器的代码执行。增加编译期和运行期的信息交流特性。有了这两个特性，可以实现模板元编程、宏、泛型等语言特性。
+4. **多级内存管理**。（Leveled Memory Management）。仿照V等语言，实现多级内存管理，从自动到手动都可以支持。
+4. **编译服务**。（Compiler as a Service）。将编译的各个阶段打散，实现分布式地可持续的编译服务。集成解释器、JIT、AOT、CodeGen等各个子系统，并提供API。实现增量编译、自动优化、热更新。
+5. **多后端**，如LLVM，WebAssembly等。
 
-// Z脚本允许在文件里直接写语句和表达式，不需要main函数
+下面详细介绍这几个特性。
+
+#### ZJ动态后端
+
+ZJ是Z语言的另一个子集，主要支持动态类型和动态解释。ZJ和ZJ在Z语言编译器内是共生的，他们共用一个前端，源码被解析为AST之后，根据不同的场景，进入不同的编译通道。
+
+- 静态编译通道：ZC的传统编译通道，即AOT编译，AST->IR->CodeGen->ASM/Obj。
+- 动态编译通道：ZJ->IR(ByteCode)->动态解释器->JIT->虚拟机。
+
+其中，静态编译通道负责打通Z语言和C语言的边界，可以简称为ZC通道；
+动态编译通道负责打通Z语言和JS语言的边界，可以简称为ZJ通道。
+
+ZJ通道的输出目标，ZJ虚拟机，同时也是一个JS虚拟机。我初步计划采用QuickJS来实现。
+也就是说，ZJ需要把Z语言的AST转换为JS的AST，然后再交给QuickJS来执行。
+
+ZJ语法子集新增的语法主要是**动态变量**`var`和动态函数`var fn`。
+
+```javascript
+// ZJ允许在文件里直接写语句和表达式，不需要main函数
 var a = 1 // ZJ中，数字默认是num类型，num可以是任意长度的dec，也可以是f64
 a = "hello" // 动态变量可以随时改变类型，这里a变成了字符串类型
 var typ = a.type // 可以直接获取变量的类型，需要运行时反射支持
@@ -569,7 +564,14 @@ a = [1, 2, 3]
 a = {name: "z", age: 18}
 ```
 
-为了方便使用，ZJ在用动态类型与静态函数交互时，会自动进行类型转换（而静态类型之间没有任何隐式转换）。例如：
+ZJ的基本类型有：
+
+- `num`：内部实现是dec和f64的一种联合体，可以表示任意精度的数字
+- `jstr`: JS字符串，内部实现是QuickJS的JSString，可以和`str`与`cstr`相互转换
+- `jarr`: JS数组，内部实现是QuickJS的JSArray，可以和`arr`相互转换
+- `jobj`: JS对象，内部实现是QuickJS的JSObject，可以和`obj`相互转换
+
+为了方便使用，ZJ在用动态类型与静态函数交互时，会自动进行类型转换。例如：
 
 ```javascript
 
@@ -855,29 +857,25 @@ Z语言支持动态解释器、二进制机器码（或汇编）、C语言代码
 
 ## 开发计划
 
-1. 参考ChibiCC和clox，实现一个和C/lox差不多的语言子集。
-1. 学习LCC、TCC和Mir，根据需求修改或添加静态特性。
-1. 学习QuickJS、Wren和Lua，根据需求添加动态特性。
-1. 添加基础的模块化。
-1. 实现和C语言的互相翻译。
-1. 实现自举：用Z语言实现zc编译器。
-1. 实现和Javascript的互相翻译。
-1. 添加类型系统，实现自定义类型、方法、组合。
+- 0.1：参考ChibiCC，实现C的基本特性。
+- 0.2：学习LCC，根据需求修改或添加特性。
+- 0.3：学习TCC，根据需求修改或添加特性。
+- 0.4：实现和C语言的互相翻译。
+- 0.5：添加类型系统，实现自定义类型与方法。
+- 0.6：添加基础的模块化。
+...
+- 1.0：实现自举：用Z语言实现zz编译器。
 
-1.0之后的规划等实现自举之后再详细规划，现在规划过早了。
+1.0之后的规划等实现了zz编译器，再在zz编译器工程里讨论。
 
 ## 感谢
 
 - [ChibiCC](https://github.com/rui314/chibicc) - 本工程的灵感来源，也是本工程的代码基础。参看[引用License](#引用License)。
 - [LCC](https://github.com/drh/lcc) - 一个开源的C编译器，并配套了的书籍《A Retargetable C Compiler: Design and Implementation》。我会学习这本书，并参考它的实现。
 - [TCC](https://www.bellard.org/tcc) - 大神Bellard开发的C编译器。本来我打算用它作为实现基础，但可惜没找到相对完整的文档。我打算学习完chibicc和LCC之后，再自己阅读TCC的源码，并融入它的部分特性。
-- [Mir](https://github.com/vnmakarov/mir) - 一个C语言解释器和JIT编译期。
 - [QuickJS](https://bellard.org/quickjs/) - 一个开源的Javascript引擎。我会学习它的实现，用来实现Z语言动态子系统以及与Javascript的互操作。
-- [Wren](wren.io) - clox作者Bob Nystrom开发的一个小巧精致的动态嵌入式语言。
-- [Lua](lua.org) - 设计精巧的脚本语言，在游戏编程行业很常用。
 
 
 ### 引用License
 
-- [ChibiCC](https://github.com/rui314/chibicc)：[MIT License](LICENSE.chibicc)
-- [clox](https://github.com/munificent/craftinginterpreters/tree/master/c)：[MIT License](LICENSE.clox)
+[ChibiCC](https://github.com/rui314/chibicc)：[MIT License](LICENSE.chibicc)
