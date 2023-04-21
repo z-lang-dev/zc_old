@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "zc.h"
 
 void help() {
@@ -18,10 +19,18 @@ int main(int argc, char *argv[]) {
   } else if (strcmp(cmd, "v") == 0) { //  version
     printf("Z语言编译期，版本号：%s。\n", ZC_VERSION);
   } else if (strcmp(cmd, "e") == 0) { // eval
-    char *src = cmd;
+    if (argc < 3) {
+      help();
+      return 1;
+    }
+    char *src = argv[2];
     eval(src);
   } else if (strcmp(cmd, "c") == 0) { // compile
-    char *src = cmd;
+    if (argc < 3) {
+      help();
+      return 1;
+    }
+    char *src = argv[2];
     compile(src);
   } else {
     help();
