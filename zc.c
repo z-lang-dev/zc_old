@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
 // 表达式求值
 void eval(char *src) {
   printf("eval> %s\n", src);
+  printf("%d\n", atoi(src));
 }
 
 // 表达式编译
