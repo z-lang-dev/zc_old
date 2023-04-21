@@ -9,7 +9,10 @@ zc: zc.o
 zi: zi.o
 	$(CC) -o zi.exe zi.o
 
+test: zc zi
+	./test.sh
+
 clean:
 	rm -f *.o *.a *.so *.dll *.dylib *.exe *.s
 
-.PHONY: clean
+.PHONY: test clean
