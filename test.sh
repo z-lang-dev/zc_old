@@ -8,7 +8,7 @@ assert() {
     if [ "$got" = "$want" ]; then
         echo "OK: $input => $got"
     else
-        echo "Error! Input = $input, Wanted $want, but got $got"
+        echo "【Error】! Input = $input, Wanted $want, but got $got"
         exit 1
     fi
 }
@@ -17,18 +17,22 @@ test() {
     want="$1"
     input="$2"
 
-    echo "... testing interpreter ..."
+    echo "---- testing interpreter ----"
     ./zi.exe "$input"
     got="$?"
 
     assert "$want" "$input" "$got"
 
-    echo "... testing compiler ..."
+    echo "---- testing compiler ----" 
     ./zc.exe "$input"
     ./app.exe
     got="$?"
     assert "$want" "$input" "$got"
 }
+
+# 简单加减法 
+test 3 "1+2"
+test 4 "8-4"
 
 # 单个数字
 test 41 "41"

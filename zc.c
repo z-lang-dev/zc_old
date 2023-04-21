@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "zc.h"
 
-static void help() {
+static void help(void) {
   printf("【用法】：./zc h|v|<源码>\n");
 }
 
@@ -30,16 +30,32 @@ int main(int argc, char *argv[]) {
 void compile(char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
-  int n = atoi(src);
+  char*p = src;
 
-  // open a file to write
+  // 打开目标汇编文件，并写入汇编代码
   FILE *fp = fopen("app.s", "w");
   fprintf(fp, "  .intel_syntax noprefix\n");
   fprintf(fp, "  .global main\n");
   fprintf(fp, "main:\n");
-  fprintf(fp, "  mov rax, %d\n", n);
+  fprintf(fp, "  mov rax, %ld\n", strtol(p, &p, 10));
+
+  if (*p) {
+    if (*p == '+') {
+      p++;
+      fprintf(fp, "  add rax, %ld\n", strtol(p, &p, 10));
+    } else if (*p == '-') {
+      p++;
+      fprintf(fp, "  sub rax, %ld\n", strtol(p, &p, 10));
+    } else {
+      printf("【错误】：不支持的运算符：%c\n", *p);
+      fclose(fp);
+      return;
+    }
+  }
+
   fprintf(fp, "  ret\n");
   fclose(fp);
 
+  // 调用clang将汇编编译成可执行文件
   system("clang -o app.exe app.s");
 }

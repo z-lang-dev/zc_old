@@ -4,7 +4,7 @@
 
 #include "zc.h"
 
-static void help() {
+static void help(void) {
   printf("【用法】：./zi h|v|<源码>\n");
 }
 
@@ -27,9 +27,24 @@ int main(int argc, char *argv[]) {
 }
 
 // 解释表达式源码
+// 现在支持：1; 1+1; 2-1;
 int interpret(char *src) {
   printf("zi>> %s\n", src);
-  int ret = atoi(src);
-  printf("%d\n", ret);
-  return ret;
+  char *p = src;
+  // strtol：从字符串中读取一个数，返回后p指向数字之后的下一个字符
+  long n = strtol(p, &p, 10);
+
+  if (*p) {
+    if (*p == '+') {
+      p++;
+      n += strtol(p, &p, 10);
+    } else if (*p == '-') {
+      p++;
+      n -= strtol(p, &p, 10);
+    } else {
+      printf("【错误】：不支持的运算符：%c\n", *p);
+    }
+  }
+  printf("%ld\n", n);
+  return n;
 }
