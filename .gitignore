@@ -5,3 +5,5 @@ a.out
 zc
 *.exe
 *.stackdump
+*.s
+app

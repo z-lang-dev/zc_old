@@ -47,5 +47,18 @@ void eval(char *src) {
 
 // 表达式编译
 void compile(char *src) {
-  printf("comp> %s\n", src);
+  printf("Compiling '%s' to app.exe\nRun with `./app.exe c <num>` and checkout `echo $?`\n", src);
+
+  int n = atoi(src);
+
+  // open a file to write
+  FILE *fp = fopen("app.s", "w");
+  fprintf(fp, "  .intel_syntax noprefix\n");
+  fprintf(fp, "  .global main\n");
+  fprintf(fp, "main:\n");
+  fprintf(fp, "  mov rax, %d\n", n);
+  fprintf(fp, "  ret\n");
+  fclose(fp);
+
+  system("clang -o app.exe app.s");
 }
