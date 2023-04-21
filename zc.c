@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include "zc.h"
 
-void help() {
-  printf("【用法】：./zc h|v|e <源码>|c <源码>\n");
+static void help() {
+  printf("【用法】：./zc h|v|<源码>\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -14,40 +14,21 @@ int main(int argc, char *argv[]) {
   }
 
   char *cmd = argv[1];
-  if (strcmp(cmd, "h") == 0) { // help
+  if (strcmp(cmd, "h") == 0) { // 帮助信息
     help();
-  } else if (strcmp(cmd, "v") == 0) { //  version
-    printf("Z语言编译期，版本号：%s。\n", ZC_VERSION);
-  } else if (strcmp(cmd, "e") == 0) { // eval
-    if (argc < 3) {
-      help();
-      return 1;
-    }
-    char *src = argv[2];
-    eval(src);
-  } else if (strcmp(cmd, "c") == 0) { // compile
-    if (argc < 3) {
-      help();
-      return 1;
-    }
-    char *src = argv[2];
+  } else if (strcmp(cmd, "v") == 0) { //  版本信息
+    printf("Z语言编译器，版本号：%s。\n", ZC_VERSION);
+  } else { // 编译
+    char *src = cmd;
     compile(src);
-  } else {
-    help();
   }
 
   return 0;
 }
 
-// 表达式求值
-void eval(char *src) {
-  printf("eval> %s\n", src);
-  printf("%d\n", atoi(src));
-}
-
-// 表达式编译
+// 编译表达式源码
 void compile(char *src) {
-  printf("Compiling '%s' to app.exe\nRun with `./app.exe c <num>` and checkout `echo $?`\n", src);
+  printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
   int n = atoi(src);
 
