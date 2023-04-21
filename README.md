@@ -45,51 +45,51 @@ const PI = 3.1415926f
 // 函数定义采用类似Rust的fn关键字。
 // 参数为空时不需要'()'。
 mfn main { 
-	// 函数调用与C一致。
-	println("Hello, world!") // 语句结尾不需要';'。
+  // 函数调用与C一致。
+  println("Hello, world!") // 语句结尾不需要';'。
 
-	// Z语言的字符串支持嵌入。这里PI值被直接嵌入到字符串里了。
-	println("Here is pi: $PI")
+  // Z语言的字符串支持嵌入。这里PI值被直接嵌入到字符串里了。
+  println("Here is pi: $PI")
 
-	// 标量是不可变的，用let声明。
-	// 标量的类型标识和Go一致，不需要冒号。
-	let a int = 10 
-	a = 12 // 错误！a是不可变的量。
+  // 标量是不可变的，用let声明。
+  // 标量的类型标识和Go一致，不需要冒号。
+  let a int = 10 
+  a = 12 // 错误！a是不可变的量。
 
-	// 变量用mut声明。
-	mut b = 5 // 支持基本的类型推导。
-	b = b * 2 // 正确！b是可变量。
-	b = "Z语言" // 错误！不能改变变量的类型。
+  // 变量用mut声明。
+  mut b = 5 // 支持基本的类型推导。
+  b = b * 2 // 正确！b是可变量。
+  b = "Z语言" // 错误！不能改变变量的类型。
 
-	// 动态类型变量，在Z语言里被称为“幻量”
-	// 幻量用var声明。
-	var c = 5
-	c = "Z语言" // 正确！c是幻量，类型和值都可以改变
+  // 动态类型变量，在Z语言里被称为“幻量”
+  // 幻量用var声明。
+  var c = 5
+  c = "Z语言" // 正确！c是幻量，类型和值都可以改变
 
-	println("a+b is $add(a, b)")
+  println("a+b is $add(a, b)")
 }
 
 // 函数定义和Go比较像。Z语言的函数是“纯函数”，参数和返回值都必须是不可变幻的，且内部不能有副作用，即只能调用纯函数。所有的纯函数都可以在编译期调用。函数的关键字是`fn`。
 fn add(a int, b int) int {
-	// 代码块的最后一个语句即是返回值
-	a + b
+  // 代码块的最后一个语句即是返回值
+  a + b
 }
 
 // 如果想添加副作用，就使用“变函数”（mutable function），关键字是 `mfn`，即Mutable Function。
 mfn writeFile(name str, s str) bool {
-	let f = open(name, W) 
-	on(exit) {
-		f.close()
-		return false
-	}
-	f.write(s)
-	return true
+  let f = open(name, W) 
+  on(exit) {
+    f.close()
+    return false
+  }
+  f.write(s)
+  return true
 }
 
 // 幻函数则相当于JS之类动态语言里的函数，不需要指定参数或返回类型。关键字是`vfn`，即Variant Function。
 vfn alert(message) {
-	message = "Alert!! $message"
-	println(message)
+  message = "Alert!! $message"
+  println(message)
 }
 ```
 
@@ -103,10 +103,10 @@ Z语言可以直接调用C语言的代码，只要引用对应的模块即可。
 use c.stdio.printf
 
 mfn main {
-	// 调用C语言代码时，需要用unsafe代码块包起来
-	unsafe {
-		printf("Hello, world!\n")
-	}
+  // 调用C语言代码时，需要用unsafe代码块包起来
+  unsafe {
+    printf("Hello, world!\n")
+  }
 }
 ```
 
@@ -162,97 +162,110 @@ Z语言的基本类型有：
 
 下面是一些基本类型的示例：
 
-```c
+```go
 mfn main {
-	let a = 10 // 整数字面量的默认类型是int
-	let b i64 = 655537 // 可以指定具体的整数类型
-	let c u64 = 0x123128ABCD // 0x开头的数字表示十六进制格式
+  let a = 10 // 整数字面量的默认类型是int
+  let b i64 = 655537 // 可以指定具体的整数类型
+  let c u64 = 0x123128ABCD // 0x开头的数字表示十六进制格式
 
-	let d dec = 1_0000_0000_0000 // 大整数里可以添加下划线作为分隔提示。这里使用的是方便中文用户的四位分隔
+  let d dec = 1_0000_0000_0000 // 大整数里可以添加下划线作为分隔提示。这里使用的是方便中文用户的四位分隔
 
-	let e f32 = 3.14 // 浮点数里必须有小数点
-	let f f64 = .8e15 // 支持科学计数法
+  let e f32 = 3.14 // 浮点数里必须有小数点
+  let f f64 = .8e15 // 支持科学计数法
 
-	let g = true // 布尔字面量
+  let g = true // 布尔字面量
 
 
-	let r rune = '好' // 支持Unicode字符
-	let r1 rune = '\u4F60' // 也可以用Unicode编码
+  let r rune = '好' // 支持Unicode字符
+  let r1 rune = '\u4F60' // 也可以用Unicode编码
 
-	let s str = "你好Z语言" // 字符串字面量
-	let cs cstr = c"你好C语言" // C字符串前面有个c开头，这样会默认添加'\0'
-	let cs1 = s.cstr() // 支持转换
-	let s1 = cs.str() // 反过来也可以
+  let s str = "你好Z语言" // 字符串字面量
+  let cs cstr = c"你好C语言" // C字符串前面有个c开头，这样会默认添加'\0'
+  let cs1 = s.cstr() // 支持转换
+  let s1 = cs.str() // 反过来也可以
 
-	let len = s.len() // 字符串长度
-	let len1 = cs.len() // cstr也支持
+  let len = s.len() // 字符串长度
+  let len1 = cs.len() // cstr也支持
+}
+```
+
+也可以一定定义多个量值：
+
+```go
+mfn main {
+  // 组合定义
+  let [a = 1, b = 2, c = 3]
+
+  // 模式匹配
+  let [a, b, c] = 0..3
+
 }
 ```
 
 Z语言的复合类型有： 
 
-- array，即数组，支持静态和动态两种。
-- slice，即切片，是动态数组的引用。
-- map，即字典，是键值对的集合。
-- type，用来自己定义类型。默认情况下，和C语言的typdef struct一样。
+- 数组（array），支持静态和动态两种。
+- 切片（slice），是动态数组的摘要引用。
+- 映射（map），是键值对的集合。
+- 类型（type），用来定义自己使用的数据结构。默认情况下type和C语言的typdef struct一样。
 
 下面是一些示例：
 
-```c
+```go
 mfn main {
-	// array
-	let ar [5]int = int[1, 2, 3, 4, 5] // 静态数组，类型标识和Go一致，字面量不同
-	let ar1 []int = [1, 2, 3, 4, 5] // 动态数组
+  // 数组
+  let ar [int|5] = [int| 1, 2, 3, 4, 5] // 静态数组，长度固定为5的数组
+  let ar1 [int] = [1, 2, 3, 4, 5, 6] // 动态数组，长度可变
 
-	let sl = ar[1:3] // 和Python一样，用:分隔开始和结尾。slice的范围是左闭右开的，即不包含3，[1, 3)
+  let sl = ar[1:3] // 和Python一样，用:分隔开始和结尾。slice的范围是左闭右开的，即不包含3，[1, 3)
 
-	// slice
-	let s2 = ar[1:] // 如果不指定，则默认到结尾
-	let s3 = ar[:2] // 如果不指定，则默认从0开始
-	let s4 = ar[] // 整个数组的切片
-	let s5 = ar[:-1] // 可以用负数表示从后往前数
+  // 切片
+  let s2 = ar[1:] // 如果不指定，则默认到结尾
+  let s3 = ar[:2] // 如果不指定，则默认从0开始
+  let s4 = ar[] // 整个数组的切片
+  let s5 = ar[:-1] // 可以用负数表示从后往前数
 
-	// array 操作
-	let ar2 = [6, 7, 8]
-	let ar3 = ar1 + ar2 // 数组相加相当于concatenate
-	let ar4 = ar2 ~ 9 // ~相当于append
-	
-	mut ar4 = [1, 2]
-	ar4 ~= 3 // 可变append，注意这里可能导致copy
+  // 数组操作
+  let ar2 = [6, 7, 8]
+  let ar3 = ar1 + ar2 // 数组相加相当于concatenate
+  let ar4 = ar2 ~ 9 // ~相当于append
+  
+  mut ar4 = [1, 2]
+  ar4 ~= 3 // 可变append，注意这里可能导致copy
 
-	// slice可以变回array
-	let ar5 = sl.array() // 可以直接变化
-
-
-	// map，形式和D差不多，类型标识是{key-type:value-type}
-	let m1 {string:int} = {
-		"hello": 1,
-		"world": 2,
-	}
-	// map的操作
-	// 添加元素
-	m1["now"] = 3 
-	// 修改
-	m1["world"] = 4
-	// 获取元素
-	let v = m1["world"]
-	// 带标默认值的获取
-	let v = m1["world"] ? 0
-	// 删除
-	m1.del("hello")
+  // 切片可以变回数组（有内存分配）
+  let ar5 = sl.array() // 可以直接变化
 
 
-	// 自定义类型
-	type Message {
-		id int,
-		mut content str,
-	}
-	mut m = Message{id: 1, content: "hello"}
-	m.id = 2 // 错误，m是标量
-	m.message = "Now" // OK, content是变量
+  // 映射，形式和D差不多，类型标识是`{键类型:值类型}`
+  let m1 {string:int} = {
+    "hello": 1,
+    "world": 2,
+  }
+  // map的操作
+  // 添加元素
+  m1["now"] = 3 
+  // 修改
+  m1["world"] = 4
+  // 获取元素
+  let v = m1["world"]
+  // 带标默认值的获取
+  let v = m1["world"] ? 0
+  // 删除
+  m1.del("hello")
 
- 	// type也可以用来指定类型别名
-	type MyInt = int
+
+  // 自定义类型
+  type Message {
+    id int,
+    mut content str,
+  }
+  mut m = Message{id: 1, content: "hello"}
+  m.id = 2 // 错误，m是标量
+  m.message = "Now" // OK, content是变量
+
+   // type也可以用来指定类型别名
+  type MyInt = int
 }
 ```
 
@@ -264,18 +277,18 @@ use fmt.format
 
 // 自定义类型
 type Message {
-	id int,
-	mut content str,
+  id int,
+  mut content str,
 }
 
 // 自定义方法
 fn Message.str() str {
-	format("id: %d, content: %s", .id, .content)
+  format("id: %d, content: %s", .id, .content)
 }
 
 mfn main {
-	mut m = Message{id: 1, content: "hello"}
-	println(m.str()) // id: 1, content: hello
+  mut m = Message{id: 1, content: "hello"}
+  println(m.str()) // id: 1, content: hello
 }
 ```
 
@@ -288,48 +301,48 @@ mfn main {
 use io.println
 
 type Thing {
-	name str,
+  name str,
 }
 
 type Hand {
-	left str,
-	right str,
-	color str,
+  left str,
+  right str,
+  color str,
 }
 
 fn Hand.grab(thing Thing) {
-	// ...
+  // ...
 }
 
 fn Hand.touch(thing Thing) {
-	// ...
+  // ...
 }
 
 type Nose {
-	color str,
+  color str,
 }
 
 fn Nose.sniff() {
-	println("sniff")
+  println("sniff")
 }
 
 fn Nose.touch(thing Thing) {
-	// ...
+  // ...
 }
 
 type Person {
-	:Hand, // Person是一个组合类型，装配了Hand类型，相当于把Hand的定义在Person里重写一遍，包括相应的方法
-	:Nose, // 装配Nose类型
-	name str,
+  :Hand, // Person是一个组合类型，装配了Hand类型，相当于把Hand的定义在Person里重写一遍，包括相应的方法
+  :Nose, // 装配Nose类型
+  name str,
 }
 
 mfn main {
-	let p = Person{name: "Zack"}
-	p.grab(Thing{name: "pen"}) // Person实例可以直接调用Hand.grab方法
-	p.sniff() // 也可以直接调用Nose.sniff方法
-	p.Hand.touch(Thing{name: "pen"}) // 当有同名的方法时，必须通过类型名来访问
-	println(p.left) // 可以直接访问Hand的字段，因为没有重名。
-	println(p.Nose.color) // Hand和Nose都有color字段，必须通过类型名来访问
+  let p = Person{name: "Zack"}
+  p.grab(Thing{name: "pen"}) // Person实例可以直接调用Hand.grab方法
+  p.sniff() // 也可以直接调用Nose.sniff方法
+  p.Hand.touch(Thing{name: "pen"}) // 当有同名的方法时，必须通过类型名来访问
+  println(p.left) // 可以直接访问Hand的字段，因为没有重名。
+  println(p.Nose.color) // Hand和Nose都有color字段，必须通过类型名来访问
 }
 ```
 
@@ -339,27 +352,27 @@ mfn main {
 
 ```c
 type Person {
-	name str,
-	left str,
-	right str,
-	Hand_color str,
-	Nose_color str,
+  name str,
+  left str,
+  right str,
+  Hand_color str,
+  Nose_color str,
 }
 
 fn Person.grab(thing Thing) {
-	// ...
+  // ...
 }
 
 fn Person.Hand_touch(thing Thing) {
-	// ...
+  // ...
 }
 
 fn Person.sniff() {
-	println("sniff")
+  println("sniff")
 }
 
 fn Person.Nose_touch(thing Thing) {
-	// ...
+  // ...
 }
 ```
 
@@ -371,18 +384,18 @@ Z语言也支持指针类型，但是不支持指针运算。
 
 ```c
 type Point {
-	x int,
-	y int,
+  x int,
+  y int,
 }
 
 mfn main {
-	mut a = 10
-	let p = &a
-	*p = 15 // 效果和`a = 15`一致
+  mut a = 10
+  let p = &a
+  *p = 15 // 效果和`a = 15`一致
 
-	let p2 = &Point{x: 1, y: 2}
-	println(p2.x) // 指针访问字段时直接用`.`，不需要`->`
-	println(*p2.x) // 这样也可以，但是不推荐
+  let p2 = &Point{x: 1, y: 2}
+  println(p2.x) // 指针访问字段时直接用`.`，不需要`->`
+  println(*p2.x) // 这样也可以，但是不推荐
 }
 ```
 
@@ -395,14 +408,14 @@ Z语言支持三种控制流语句：`if`、`for`和`when`。
 ```c
 use io.println
 mfn main {
-	let a = 1
-	if a > 0 {
-		println("a > 0")
-	} else if a == 0 {
-		println("a == 0")
-	} else {
-		println("a <= 0 ")
-	}
+  let a = 1
+  if a > 0 {
+    println("a > 0")
+  } else if a == 0 {
+    println("a == 0")
+  } else {
+    println("a <= 0 ")
+  }
 }
 ```
 `when`相当于C的`switch`，但是借鉴了Kotln的`when`模式匹配语句：
@@ -412,16 +425,16 @@ use os
 use io.println
 
 mfn main {
-	when os.GetOS() {
-	is os.WINDOWS:
-		println("windows")
-	is os.LINUX:
-		println("linux")
-	is os.Android:
-		println("android")
-	else:
-		println("unkown os")
-	}
+  when os.GetOS() {
+  is os.WINDOWS:
+    println("windows")
+  is os.LINUX:
+    println("linux")
+  is os.Android:
+    println("android")
+  else:
+    println("unkown os")
+  }
 }
 ```
 
@@ -433,23 +446,23 @@ mfn main {
 ```c
 use io.println
 mfn main {
-	// range
-	for i: 0..5 {
-		println(i)
-	}
+  // range
+  for i: 0..5 {
+    println(i)
+  }
 
-	// 相当于while
-	mut a = 0
-	for a < 5 {
-		println(a++)
-	}
+  // 相当于while
+  mut a = 0
+  for a < 5 {
+    println(a++)
+  }
 
-	// 无限循环+break
-	for {
-		if a > 100 {
-			break
-		}
-	}
+  // 无限循环+break
+  for {
+    if a > 100 {
+      break
+    }
+  }
 }
 ```
 
@@ -470,22 +483,22 @@ Go语言的控制流语句本身也都是表达式，其返回值为：
 use io.println
 
 mfn main {
-	let a = if 1>0 {true} else {false} // 相当于C的三元表达式
+  let a = if 1>0 {true} else {false} // 相当于C的三元表达式
 
-	// when语句取分支结果
-	let name = "Michael"
-	let nickName = when name {
-	is "William": "Bill"
-	is "Michael": "Mike"
-	is "Elizabeth": "Lisa"
-	else: "Bob"
-	} 
+  // when语句取分支结果
+  let name = "Michael"
+  let nickName = when name {
+  is "William": "Bill"
+  is "Michael": "Mike"
+  is "Elizabeth": "Lisa"
+  else: "Bob"
+  } 
 
-	// for语句会构造出一个slice
-	let arr = for i: 0..5 { i*i } // arr == [0, 1, 4, 9, 16]
+  // for语句会构造出一个slice
+  let arr = for i: 0..5 { i*i } // arr == [0, 1, 4, 9, 16]
 
-	// 如果只想要最后一个元素，则用[-1]即可：
-	println(arr[-1])
+  // 如果只想要最后一个元素，则用[-1]即可：
+  println(arr[-1])
 }
 ```
 
@@ -512,29 +525,29 @@ Z的接口的原则是没有运行时消耗，一切的判断都在编译期完�
 use io.println
 
 like Bird {
-	flap()
+  flap()
 }
 
 type Duck {}
 Duck.flap() {
-	println("flap~~")
+  println("flap~~")
 }
 
 type Chicken {}
 Chicken.flap() {
-	println("cluck~~")
+  println("cluck~~")
 }
 
 type Eagle {}
 Eagle.flap() {
-	println("phew~~")
+  println("phew~~")
 }
 
 mfn main {
-	let birds []Bird = [&Duck{}, &Chicken{}, &Eagle{}]
-	birds[0].flap() // flap~~
-	birds[1].flap() // cluck~~
-	birds[2].flap() // phew~~
+  let birds []Bird = [&Duck{}, &Chicken{}, &Eagle{}]
+  birds[0].flap() // flap~~
+  birds[1].flap() // cluck~~
+  birds[2].flap() // phew~~
 }
 ```
 
@@ -560,7 +573,7 @@ println(a+b) // 调用动态函数add，不需要判断类型，具体类型会�
 // 动态函数，参数和返回值都是默认var。相当于 fn add(var a, var b) var { a + b }
 // 和JS一样，函数定义可以放在后面
 var fn add(a, b) {
-	a + b
+  a + b
 }
 
 // 数组类型
@@ -576,11 +589,11 @@ a = {name: "z", age: 18}
 
 // 这是一个接收int类型的静态函数
 fn pow(a int, b int) int {
-	mut r = a
-	for 0..b {
-		r *= a
-	}
-	r
+  mut r = a
+  for 0..b {
+    r *= a
+  }
+  r
 }
 
 var a = 64
@@ -618,10 +631,10 @@ Z语言提供的特性有：
 - `var`：动态变量和动态函数的支持。
 - `pub`：模块间访问的限制。
 - `mem`：内存管理，有几种选择
-	- `mem:manual`：手动内存管理。
-	- `mem:session`：会话内存管理。
-	- `mem:gc`：自动垃圾回收
-	- `mem:autofree`：自动内存管理。
+  - `mem:manual`：手动内存管理。
+  - `mem:session`：会话内存管理。
+  - `mem:gc`：自动垃圾回收
+  - `mem:autofree`：自动内存管理。
 
 每个场景对应的支撑集不同，相应的特性开关也不同。可以用如下表格展示：
 
@@ -670,11 +683,11 @@ const PI = 3.1415926
 const PI_SQUARE = #pow(PI, 2)
 
 fn pow(x int, y int) int {
-	mut r
-	for 0..y {
-		r *= x
-	}
-	r
+  mut r
+  for 0..y {
+    r *= x
+  }
+  r
 }
 ```
 
@@ -682,9 +695,9 @@ fn pow(x int, y int) int {
 
 ```c
 const MAX_BUF_SIZE = #{
-	let info = getSystemInfo()
-	let memSize = info.mem.size
-	memSzie / 256
+  let info = getSystemInfo()
+  let memSize = info.mem.size
+  memSzie / 256
 }
 ```
 
@@ -696,15 +709,15 @@ const MAX_BUF_SIZE = #{
 ```c
 use os
 #{
-	if os.OS == os.WINDOWS {
-		%{
-			// call windows api OpenFile()
-		}
-	} else if os.OS == os.LINUX {
-		%{
-			// call linux api open()
-		}
-	}
+  if os.OS == os.WINDOWS {
+    %{
+      // call windows api OpenFile()
+    }
+  } else if os.OS == os.LINUX {
+    %{
+      // call linux api open()
+    }
+  }
 }
 ```
 
@@ -718,11 +731,11 @@ use os
 ```c
 use os
 #if os.OS == os.WINDOWS {
-	// 这里的代码是运行期代码
-	// call windows api OpenFile()
+  // 这里的代码是运行期代码
+  // call windows api OpenFile()
 } else if os.OS = os.LINUX {
-	// 之类的代码是运行期代码
-	// call linux api open()
+  // 之类的代码是运行期代码
+  // call linux api open()
 }
 ```
 
@@ -737,13 +750,13 @@ fn open(name str) {
 
 #when os.OS {
 is os.WINDOWS:  
-	// call windows api OpenFile()
+  // call windows api OpenFile()
 is os.LINUX:
-	// call linux api open()
+  // call linux api open()
 is os.MACOS:
-	// call macos api open()
+  // call macos api open()
 else:
-	// OSDoesNotSupport()
+  // OSDoesNotSupport()
 }
 ```
 
@@ -751,9 +764,9 @@ else:
 
 ```c
 enum {
-	#for let i in ["A", "B", "C", "D", "E"] {
-		MEMBER_#i
-	}
+  #for let i in ["A", "B", "C", "D", "E"] {
+    MEMBER_#i
+  }
 }
 ```
 
@@ -761,11 +774,11 @@ enum {
 
 ```c
 enum {
-	MEMBER_A
-	MEMBER_B
-	MEMBER_C
-	MEMBER_D
-	MEMBER_E
+  MEMBER_A
+  MEMBER_B
+  MEMBER_C
+  MEMBER_D
+  MEMBER_E
 }
 ```
 
@@ -776,7 +789,7 @@ enum {
 type ns = int or str
 
 fn add(x ns, y ns) ns {
-	x + y
+  x + y
 }
 ```
 
