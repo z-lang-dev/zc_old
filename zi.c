@@ -34,7 +34,7 @@ int interpret(char *src) {
   // strtol：从字符串中读取一个数，返回后p指向数字之后的下一个字符
   long n = strtol(p, &p, 10);
 
-  if (*p) {
+  while (*p) {
     if (*p == '+') {
       p++;
       n += strtol(p, &p, 10);

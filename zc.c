@@ -39,7 +39,7 @@ void compile(char *src) {
   fprintf(fp, "main:\n");
   fprintf(fp, "  mov rax, %ld\n", strtol(p, &p, 10));
 
-  if (*p) {
+  while (*p) {
     if (*p == '+') {
       p++;
       fprintf(fp, "  add rax, %ld\n", strtol(p, &p, 10));

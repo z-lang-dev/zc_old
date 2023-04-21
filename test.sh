@@ -30,6 +30,10 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 多个加减法
+test 7 "1+4+8-6"
+test 10 "100-80-12+2"
+
 # 简单加减法 
 test 3 "1+2"
 test 4 "8-4"
