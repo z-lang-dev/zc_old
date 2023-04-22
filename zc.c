@@ -30,26 +30,33 @@ int main(int argc, char *argv[]) {
 void compile(char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
-  char*p = src;
-
   // 打开目标汇编文件，并写入汇编代码
   FILE *fp = fopen("app.s", "w");
   fprintf(fp, "  .intel_syntax noprefix\n");
   fprintf(fp, "  .global main\n");
   fprintf(fp, "main:\n");
-  fprintf(fp, "  mov rax, %ld\n", strtol(p, &p, 10));
 
-  while (*p) {
-    if (*p == '+') {
-      p++;
-      fprintf(fp, "  add rax, %ld\n", strtol(p, &p, 10));
-    } else if (*p == '-') {
-      p++;
-      fprintf(fp, "  sub rax, %ld\n", strtol(p, &p, 10));
-    } else {
-      printf("【错误】：不支持的运算符：%c\n", *p);
-      fclose(fp);
-      return;
+  new_lexer(src);
+
+  Token t = next_token();
+  if (t.type != TK_NUM) {
+    printf("【错误】：计算表达式必须以数字开头：%c\n", *t.pos);
+    return;
+  }
+  fprintf(fp, "  mov rax, %ld\n", strtol(t.pos, NULL, 10));
+
+  for (t = next_token(); t.type != TK_EOF && t.type != TK_ERROR; t = next_token()) {
+    switch (t.type) {
+      case TK_PLUS:
+        fprintf(fp, "  add rax, %ld\n", strtol(next_token().pos, NULL, 10));
+        break;
+      case TK_MINUS:
+        fprintf(fp, "  sub rax, %ld\n", strtol(next_token().pos, NULL, 10));
+        break;
+      default:
+        printf("【错误】：不支持的运算符：%c\n", *t.pos);
+        fclose(fp);
+        return;
     }
   }
 

@@ -3,11 +3,11 @@ CC=clang
 
 all: zc zi
 
-zc: zc.o
-	$(CC) -o zc.exe zc.o
+zc: zc.o lexer.o
+	$(CC) -o zc.exe zc.o lexer.o
 
-zi: zi.o
-	$(CC) -o zi.exe zi.o
+zi: zi.o lexer.o
+	$(CC) -o zi.exe zi.o lexer.o
 
 test: zc zi
 	./test.sh

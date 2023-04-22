@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# 检测`want`和`got`是否相等，否则输出错误信息，提前退出测试流程
 assert() {
     want="$1"
     input="$2"
@@ -13,6 +14,7 @@ assert() {
     fi
 }
 
+# 测试一组用例，包括解释器和编译器的测试
 test() {
     want="$1"
     input="$2"
