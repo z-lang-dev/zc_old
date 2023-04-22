@@ -32,6 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 空白字符
+test 0 " 0 "
+test 2 "1 + 1"
+test 15 " 1 + 2+3 +4+ 5 "
+
 # 多个加减法
 test 7 "1+4+8-6"
 test 10 "100-80-12+2"
