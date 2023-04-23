@@ -19,6 +19,8 @@ static const char * const TOKEN_NAMES[] = {
   [TK_DIV] = "TK_DIV",
   [TK_LPAREN] = "TK_LPAREN",
   [TK_RPAREN] = "TK_RPAREN",
+  [TK_SEMI] = "TK_SEMI",
+  [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
   [TK_ERROR] = "TK_ERROR",
 };
@@ -116,6 +118,10 @@ Token next_token(void) {
       return make_token(TK_LPAREN);
     case ')':
       return make_token(TK_RPAREN);
+    case ';':
+      return make_token(TK_SEMI);
+    case '\n':
+      return make_token(TK_NLINE);
   }
 
   printf("【错误】：不支持的运算符：%c\n", c);

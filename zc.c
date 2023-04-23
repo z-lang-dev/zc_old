@@ -41,17 +41,17 @@ static void pop(char *reg, FILE *fp) {
   fprintf(fp, "  pop %s\n", reg);
 }
 
-static void gen(Node *node, FILE *fp) {
+static void gen_expr(Node *node, FILE *fp) {
   if (node->type == ND_NUM) {
     fprintf(fp, "  mov rax, %ld\n", node->val);
     return;
   }
 
   // 计算左侧结果并压栈
-  gen(node->lhs, fp);
+  gen_expr(node->lhs, fp);
   push(fp);
   // 计算右侧结果并压栈
-  gen(node->rhs, fp);
+  gen_expr(node->rhs, fp);
   push(fp);
   // 把盏顶的两个值弹出到rax和rdi
   pop("rdi", fp);
@@ -91,7 +91,9 @@ void compile(char *src) {
 
   new_lexer(src);
   Node *prog = program();
-  gen(prog, fp);
+  for (Node *n = prog; n; n = n->next) {
+    gen_expr(n, fp);
+  }
 
   fprintf(fp, "  ret\n");
   fclose(fp);

@@ -19,6 +19,8 @@ typedef enum {
   TK_DIV, // /
   TK_LPAREN, // (
   TK_RPAREN, // )
+  TK_SEMI, // ;
+  TK_NLINE, // \n
   TK_EOF, // 文件结束
   TK_ERROR, // 错误
 } TokenType;
@@ -51,14 +53,22 @@ typedef enum {
   ND_MINUS, // -
   ND_MUL, // *
   ND_DIV, // /
+  ND_EXPR, // 表达式
 } NodeType;
 
-// 节点
+// 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
 typedef struct Node Node;
 struct Node {
   NodeType type; // 类型
+
+  // 表达式
+  Node *next; // 下一个节点
+
+  // 二元运算符
   Node *lhs; // 左子节点
   Node *rhs; // 右子节点
+
+  // 普通数字
   long val; // 整数值
 };
 

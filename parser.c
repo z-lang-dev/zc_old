@@ -36,16 +36,34 @@ static bool match(TokenType type) {
   return false;
 }
 
+static void expect_expr_sep(void) {
+  if (match(TK_NLINE) || match(TK_SEMI)) {
+    return;
+  }
+  if (peek(TK_EOF)) {
+    return;
+  }
+  fprintf(stderr, "expected ';', newline or EOF\n");
+  exit(1);
+}
+
 
 static Node *expr(void);
 static Node *mul(void);
 static Node *primary(void);
 static Node *number(void);
 
-// program = expr
+// program = expr*
 Node *program(void) {
   advance();
-  return expr();
+  Node head;
+  Node *cur = &head;
+  while (!peek(TK_EOF)) {
+    cur = cur->next = expr();
+    // 表达式后面要有分号、换行或EOF
+    expect_expr_sep();
+  }
+  return head.next;
 }
 
 // expr = mul ("+" mul | "-" mul )*

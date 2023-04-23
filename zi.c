@@ -26,20 +26,20 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-long gen(Node *node) {
+long gen_expr(Node *node) {
   if (node->type == ND_NUM) {
     return node->val;
   }
 
   switch (node->type) {
     case ND_PLUS:
-      return gen(node->lhs) + gen(node->rhs);
+      return gen_expr(node->lhs) + gen_expr(node->rhs);
     case ND_MINUS:
-      return gen(node->lhs) - gen(node->rhs);
+      return gen_expr(node->lhs) - gen_expr(node->rhs);
     case ND_MUL:
-      return gen(node->lhs) * gen(node->rhs);
+      return gen_expr(node->lhs) * gen_expr(node->rhs);
     case ND_DIV:
-      return gen(node->lhs) / gen(node->rhs);
+      return gen_expr(node->lhs) / gen_expr(node->rhs);
     default:
       printf("【错误】：不支持的运算符：%c\n", node->type);
       return 0;
@@ -51,8 +51,11 @@ long gen(Node *node) {
 int interpret(char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
-  Node *node = program();
-  long n = gen(node);
-  printf("%ld\n", n);
-  return n;
+  Node *prog= program();
+  long r = 0;
+  for (Node *e = prog; e; e = e->next) {
+    r = gen_expr(e);
+    printf("%ld\n", r);
+  }
+  return r;
 }
