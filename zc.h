@@ -22,9 +22,9 @@ typedef enum {
 // 词符
 typedef struct Token Token;
 struct Token {
-    TokenType type; // 类型
-    const char *pos; // 词符在代码中的位置
-    int len; // 词符长度
+  TokenType type; // 类型
+  const char *pos; // 词符在代码中的位置
+  int len; // 词符长度
 };
 
 // 新建一个词法分析器，接收src源码 
