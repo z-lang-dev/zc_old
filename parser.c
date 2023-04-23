@@ -50,9 +50,9 @@ static Node *expr(void) {
     Node *node = number();
     for (;;) {
         if (match(TK_PLUS)) {
-            node = new_binary(ND_ADD, node, number());
+            node = new_binary(ND_PLUS, node, number());
         } else if (match(TK_MINUS)) {
-            node = new_binary(ND_SUB, node, number());
+            node = new_binary(ND_MINUS, node, number());
         } else {
             return node;
         }
