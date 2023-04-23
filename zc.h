@@ -37,6 +37,28 @@ Token next_token(void);
 void print_token(Token t);
 
 // =============================
+// 语法分析
+// =============================
+
+// 节点类型
+typedef enum {
+  ND_NUM, // 整数
+  ND_PLUS, // +
+  ND_MINUS, // -
+} NodeType;
+
+// 节点
+typedef struct Node Node;
+struct Node {
+  NodeType type; // 类型
+  Node *lhs; // 左子节点
+  Node *rhs; // 右子节点
+  long val; // 整数值
+};
+
+Node *program(void);
+
+// =============================
 // 编译器和解释器的入口 
 // =============================
 

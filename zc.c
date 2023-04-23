@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "zc.h"
 
 static void help(void) {
@@ -26,6 +27,45 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+static void push(FILE *fp) {
+  fprintf(fp, "  push rax\n");
+}
+
+static void pop(char *reg, FILE *fp) {
+  fprintf(fp, "  pop %s\n", reg);
+}
+
+static void gen(Node *node, FILE *fp) {
+  if (node->type == ND_NUM) {
+    fprintf(fp, "  mov rax, %ld\n", node->val);
+    return;
+  }
+
+  // 计算左侧结果并压栈
+  gen(node->lhs, fp);
+  push(fp);
+  // 计算右侧结果并压栈
+  gen(node->rhs, fp);
+  push(fp);
+  // 把盏顶的两个值弹出到rax和rdi
+  pop("rdi", fp);
+  pop("rax", fp);
+  // TODO: 上面的计算如果左右顺序反过来，就可以节省一次push和pop，未来可以考虑优化
+
+  // 执行计算
+  switch (node->type) {
+    case ND_PLUS:
+      fprintf(fp, "  add rax, rdi\n");
+      return;
+    case ND_MINUS:
+      fprintf(fp, "  sub rax, rdi\n");
+      return;
+    default:
+      printf("【错误】：不支持的运算符：%c\n", node->type);
+  }
+
+}
+
 // 编译表达式源码
 void compile(char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
@@ -37,28 +77,8 @@ void compile(char *src) {
   fprintf(fp, "main:\n");
 
   new_lexer(src);
-
-  Token t = next_token();
-  if (t.type != TK_NUM) {
-    printf("【错误】：计算表达式必须以数字开头：%c\n", *t.pos);
-    return;
-  }
-  fprintf(fp, "  mov rax, %ld\n", strtol(t.pos, NULL, 10));
-
-  for (t = next_token(); t.type != TK_EOF && t.type != TK_ERROR; t = next_token()) {
-    switch (t.type) {
-      case TK_PLUS:
-        fprintf(fp, "  add rax, %ld\n", strtol(next_token().pos, NULL, 10));
-        break;
-      case TK_MINUS:
-        fprintf(fp, "  sub rax, %ld\n", strtol(next_token().pos, NULL, 10));
-        break;
-      default:
-        printf("【错误】：不支持的运算符：%c\n", *t.pos);
-        fclose(fp);
-        return;
-    }
-  }
+  Node *prog = program();
+  gen(prog, fp);
 
   fprintf(fp, "  ret\n");
   fclose(fp);

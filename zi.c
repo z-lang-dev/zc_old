@@ -26,30 +26,29 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+long gen(Node *node) {
+  if (node->type == ND_NUM) {
+    return node->val;
+  }
+
+  switch (node->type) {
+    case ND_PLUS:
+      return gen(node->lhs) + gen(node->rhs);
+    case ND_MINUS:
+      return gen(node->lhs) - gen(node->rhs);
+    default:
+      printf("【错误】：不支持的运算符：%c\n", node->type);
+      return 0;
+  }
+}
+
 // 解释表达式源码
 // 现在支持：1; 1+1; 2-1;
 int interpret(char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
-  Token t = next_token();
-  print_token(t);
-  if (t.type != TK_NUM) {
-    printf("【错误】：计算表达式必须以数字开头：%c\n", *t.pos);
-    return 1;
-  }
-  int n = strtol(t.pos, NULL, 10);
-  for (t = next_token(); t.type != TK_EOF && t.type != TK_ERROR; t = next_token()) {
-    print_token(t);
-    switch (t.type) {
-      case TK_PLUS:
-        n += strtol(next_token().pos, NULL, 10);
-        break;
-      case TK_MINUS:
-        n -= strtol(next_token().pos, NULL, 10);
-        break;
-      default:
-        printf("【错误】：不支持的运算符：%c\n", *t.pos);
-    }
-  }
+  Node *node = program();
+  long n = gen(node);
+  printf("%ld\n", n);
   return n;
 }
