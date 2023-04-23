@@ -19,6 +19,12 @@ int main(int argc, char *argv[]) {
     help();
   } else if (strcmp(cmd, "v") == 0) { //  版本信息
     printf("Z语言编译器，版本号：%s。\n", ZC_VERSION);
+  } else if (strcmp(cmd, "l") == 0) { // 词法分析
+    if (argc < 3) {
+      printf("缺少源码\n");
+      return 1;
+    }
+    lex(argv[2]);
   } else { // 编译
     char *src = cmd;
     compile(src);

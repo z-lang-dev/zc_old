@@ -65,11 +65,14 @@ struct Node {
 Node *program(void);
 
 // =============================
-// 编译器和解释器的入口 
+// 各个命令
 // =============================
 
-// 表达式求值
+// 词法分析
+void lex(const char *src);
+
+// 求值
 int interpret(char *src);
 
-// 表达式编译
+// 编译
 void compile(char *src);

@@ -11,6 +11,19 @@ struct Lexer {
 
 Lexer lexer;
 
+static const char * const TOKEN_NAMES[] = {
+  [TK_NUM] = "TK_NUM",
+  [TK_PLUS] = "TK_PLUS",
+  [TK_MINUS] = "TK_MINUS",
+  [TK_MUL] = "TK_MUL",
+  [TK_DIV] = "TK_DIV",
+  [TK_LPAREN] = "TK_LPAREN",
+  [TK_RPAREN] = "TK_RPAREN",
+  [TK_EOF] = "TK_EOF",
+  [TK_ERROR] = "TK_ERROR",
+};
+
+
 // 初始化词法分析器
 void new_lexer(const char *src) {
   lexer.start = src;
@@ -112,34 +125,19 @@ Token next_token(void) {
 
 void print_token(Token t) {
   printf("{");
-  switch (t.type) {
-    case TK_NUM:
-      printf("NUM   ");
-      break;
-    case TK_PLUS:
-      printf("PLUS  ");
-      break;
-    case TK_MINUS:
-      printf("MINUS ");
-      break;
-    case TK_MUL:
-      printf("MUL   ");
-      break;
-    case TK_DIV:
-      printf("DIV   ");
-      break;
-    case TK_LPAREN:
-      printf("LPAREN");
-      break;
-    case TK_RPAREN:
-      printf("RPAREN");
-      break;
-    case TK_EOF:
-      printf("EOF   ");
-      break;
-    case TK_ERROR:
-      printf("ERROR ");
-      break;
+  if (t.type > TK_ERROR) {
+    printf("UNKNOWN");
+  } else {
+    printf("%-8s", TOKEN_NAMES[t.type]);
   }
   printf("| %.*s }\n", t.len, t.pos);
+}
+
+// 进行此法分析并打印词符
+void lex(const char *src) {
+  printf("Lexing...\n");
+  new_lexer(src);
+  for (Token t = next_token(); t.type != TK_EOF; t = next_token()) {
+    print_token(t);
+  }
 }
