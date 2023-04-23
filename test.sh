@@ -32,6 +32,18 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 括号
+test 3 "(1+2)"
+test 6 "(1+2)*2"
+test 9 "(1+2)*(2+1)"
+test 7 "1+(2*3)"
+
+# 乘除法
+test 6 "2*3"
+test 2 "4/2"
+test 12 "3*8/2"
+test 8 "5*2 + 12/3 - 6"
+
 # 空白字符
 test 0 " 0 "
 test 2 "1 + 1"

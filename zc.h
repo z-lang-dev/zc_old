@@ -15,6 +15,10 @@ typedef enum {
   TK_NUM, // 整数
   TK_PLUS, // +
   TK_MINUS, // -
+  TK_MUL, // *
+  TK_DIV, // /
+  TK_LPAREN, // (
+  TK_RPAREN, // )
   TK_EOF, // 文件结束
   TK_ERROR, // 错误
 } TokenType;
@@ -45,6 +49,8 @@ typedef enum {
   ND_NUM, // 整数
   ND_PLUS, // +
   ND_MINUS, // -
+  ND_MUL, // *
+  ND_DIV, // /
 } NodeType;
 
 // 节点

@@ -60,6 +60,13 @@ static void gen(Node *node, FILE *fp) {
     case ND_MINUS:
       fprintf(fp, "  sub rax, rdi\n");
       return;
+    case ND_MUL:
+      fprintf(fp, "  imul rax, rdi\n");
+      return;
+    case ND_DIV:
+      fprintf(fp, "  cqo\n");
+      fprintf(fp, "  idiv rdi\n");
+      return;
     default:
       printf("【错误】：不支持的运算符：%c\n", node->type);
   }

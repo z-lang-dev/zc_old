@@ -36,6 +36,10 @@ long gen(Node *node) {
       return gen(node->lhs) + gen(node->rhs);
     case ND_MINUS:
       return gen(node->lhs) - gen(node->rhs);
+    case ND_MUL:
+      return gen(node->lhs) * gen(node->rhs);
+    case ND_DIV:
+      return gen(node->lhs) / gen(node->rhs);
     default:
       printf("【错误】：不支持的运算符：%c\n", node->type);
       return 0;

@@ -95,6 +95,14 @@ Token next_token(void) {
       return make_token(TK_PLUS);
     case '-':
       return make_token(TK_MINUS);
+    case '*':
+      return make_token(TK_MUL);
+    case '/':
+      return make_token(TK_DIV);
+    case '(':
+      return make_token(TK_LPAREN);
+    case ')':
+      return make_token(TK_RPAREN);
   }
 
   printf("【错误】：不支持的运算符：%c\n", c);
@@ -106,19 +114,31 @@ void print_token(Token t) {
   printf("{");
   switch (t.type) {
     case TK_NUM:
-      printf("NUM  ");
+      printf("NUM   ");
       break;
     case TK_PLUS:
-      printf("PLUS ");
+      printf("PLUS  ");
       break;
     case TK_MINUS:
-      printf("MINUS");
+      printf("MINUS ");
+      break;
+    case TK_MUL:
+      printf("MUL   ");
+      break;
+    case TK_DIV:
+      printf("DIV   ");
+      break;
+    case TK_LPAREN:
+      printf("LPAREN");
+      break;
+    case TK_RPAREN:
+      printf("RPAREN");
       break;
     case TK_EOF:
-      printf("EOF  ");
+      printf("EOF   ");
       break;
     case TK_ERROR:
-      printf("ERROR");
+      printf("ERROR ");
       break;
   }
   printf("| %.*s }\n", t.len, t.pos);
