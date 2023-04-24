@@ -12,11 +12,13 @@ static const char *ZC_VERSION = "0.0.1";
 
 // 词符类型
 typedef enum {
-  TK_NUM, // 整数
+  TK_IDENT, // 名符
+  TK_NUM, // 数
   TK_PLUS, // +
   TK_MINUS, // -
   TK_MUL, // *
   TK_DIV, // /
+  TK_ASN, // =
   TK_LPAREN, // (
   TK_RPAREN, // )
   TK_SEMI, // ;
@@ -54,12 +56,17 @@ typedef enum {
   ND_MUL, // *
   ND_DIV, // /
   ND_EXPR, // 表达式
+  ND_ASN, // 赋值
+  ND_IDENT, // 名符
 } NodeType;
 
 // 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
 typedef struct Node Node;
 struct Node {
   NodeType type; // 类型
+
+  // 名符
+  const char *name; // 名称
 
   // 表达式
   Node *next; // 下一个节点
@@ -71,6 +78,8 @@ struct Node {
   // 普通数字
   long val; // 整数值
 };
+
+void print_node(Node *node);
 
 Node *program(void);
 

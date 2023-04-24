@@ -41,10 +41,35 @@ static void pop(char *reg, FILE *fp) {
   fprintf(fp, "  pop %s\n", reg);
 }
 
-static void gen_expr(Node *node, FILE *fp) {
-  if (node->type == ND_NUM) {
-    fprintf(fp, "  mov rax, %ld\n", node->val);
+static void gen_addr(Node *node, FILE *fp) {
+  if (node->type == ND_IDENT) {
+    int offset = (node->name[0] - 'a' + 1) * 8;
+    fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
+  } else {
+    printf("【错误】：不支持的类型：%d\n", node->type);
+    exit(1);
+  }
+}
+
+static void gen_expr(Node *node, FILE *fp) {
+  switch (node->type) {
+    case ND_NUM:
+      fprintf(fp, "  mov rax, %ld\n", node->val);
+      return;
+    case ND_IDENT:
+      gen_addr(node, fp);
+      fprintf(fp, "  mov rax, [rax]\n");
+      return;
+    case ND_ASN:
+      gen_addr(node->lhs, fp);
+      push(fp);
+      gen_expr(node->rhs, fp);
+      pop("rdi", fp);
+      fprintf(fp, "  mov [rdi], rax\n");
+      return;
+    default:
+      break;
   }
 
   // 计算左侧结果并压栈
@@ -89,12 +114,20 @@ void compile(char *src) {
   fprintf(fp, "  .global main\n");
   fprintf(fp, "main:\n");
 
+  // Prologue
+  fprintf(fp, "  push rbp\n");
+  fprintf(fp, "  mov rbp, rsp\n");
+  fprintf(fp, "  sub rsp, 208\n"); // 为a~z的26个变量分配空间
+
   new_lexer(src);
   Node *prog = program();
   for (Node *n = prog; n; n = n->next) {
     gen_expr(n, fp);
   }
 
+  // Epilogue
+  fprintf(fp, "  mov rsp, rbp\n");
+  fprintf(fp, "  pop rbp\n");
   fprintf(fp, "  ret\n");
   fclose(fp);
 

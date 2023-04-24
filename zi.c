@@ -4,6 +4,17 @@
 
 #include "zc.h"
 
+// 现在只支持单字母的变量，且只支持数字类型，因此使用一个数组就可以覆盖所有情况了
+long values[26] = {0};
+
+static void set_val(char name, long val) {
+  values[name - 'a'] = val;
+}
+
+static long get_val(char name) {
+  return values[name - 'a'];
+}
+
 static void help(void) {
   printf("【用法】：./zi h|v|<源码>\n");
 }
@@ -27,11 +38,9 @@ int main(int argc, char *argv[]) {
 }
 
 long gen_expr(Node *node) {
-  if (node->type == ND_NUM) {
-    return node->val;
-  }
-
   switch (node->type) {
+    case ND_NUM:
+      return node->val;
     case ND_PLUS:
       return gen_expr(node->lhs) + gen_expr(node->rhs);
     case ND_MINUS:
@@ -40,8 +49,21 @@ long gen_expr(Node *node) {
       return gen_expr(node->lhs) * gen_expr(node->rhs);
     case ND_DIV:
       return gen_expr(node->lhs) / gen_expr(node->rhs);
+    case ND_ASN: {
+      char name = node->lhs->name[0];
+      long val = 0;
+      if (node->rhs) {
+        val = gen_expr(node->rhs);
+      }
+      set_val(name, val);
+      return val;
+    }
+    case ND_IDENT:
+      return get_val(node->name[0]);
     default:
-      printf("【错误】：不支持的运算符：%c\n", node->type);
+      printf("【错误】：不支持的节点：");
+      print_node(node);
+      printf("\n");
       return 0;
   }
 }

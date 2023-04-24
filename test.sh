@@ -32,8 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
-# 多个表达式
+# 单个字符的变量
+test 41 "a=41;a"
+test 5 "a=3;b=a+2;b"
 
+# 多个表达式
 test 3 "1;2;3"
 
 # 括号

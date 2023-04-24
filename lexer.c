@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "zc.h"
 
@@ -11,12 +12,14 @@ struct Lexer {
 
 Lexer lexer;
 
-static const char * const TOKEN_NAMES[] = {
+static const char* const TOKEN_NAMES[] = {
+  [TK_IDENT] = "TK_IDENT",
   [TK_NUM] = "TK_NUM",
   [TK_PLUS] = "TK_PLUS",
   [TK_MINUS] = "TK_MINUS",
   [TK_MUL] = "TK_MUL",
   [TK_DIV] = "TK_DIV",
+  [TK_ASN] = "TK_ASN",
   [TK_LPAREN] = "TK_LPAREN",
   [TK_RPAREN] = "TK_RPAREN",
   [TK_SEMI] = "TK_SEMI",
@@ -24,7 +27,6 @@ static const char * const TOKEN_NAMES[] = {
   [TK_EOF] = "TK_EOF",
   [TK_ERROR] = "TK_ERROR",
 };
-
 
 // 初始化词法分析器
 void new_lexer(const char *src) {
@@ -78,12 +80,33 @@ static bool is_digit(char c) {
   return '0' <= c && c <= '9';
 }
 
+static bool is_alpha(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+static bool is_alnum(char c) {
+  return is_digit(c) || is_alpha(c);
+}
+
 // 解析数类型的词符，例如：1，999等
 static Token number(void) {
   while (is_digit(peek())) {
     advance();
   }
   return make_token(TK_NUM);
+}
+
+static Token check_keyword(Token t) {
+  // TODO: add keywords here
+  return t;
+}
+
+static Token ident(void) {
+  while (is_alnum(peek())) {
+    advance();
+  }
+  Token t = make_token(TK_IDENT);
+  return check_keyword(t);
 }
 
 Token next_token(void) {
@@ -105,6 +128,11 @@ Token next_token(void) {
     return number();
   }
 
+  // 如果是名符
+  if (is_alpha(c)) {
+    return ident();
+  }
+
   switch (c) {
     case '+':
       return make_token(TK_PLUS);
@@ -122,20 +150,26 @@ Token next_token(void) {
       return make_token(TK_SEMI);
     case '\n':
       return make_token(TK_NLINE);
+    case '=':
+      return make_token(TK_ASN);
   }
 
-  printf("【错误】：不支持的运算符：%c\n", c);
+  printf("【错误】：词法解析不支持的运算符：%c\n", c);
   return make_token(TK_ERROR);
 
 }
 
-void print_token(Token t) {
-  printf("{");
-  if (t.type > TK_ERROR) {
+static void print_token_type(TokenType tt) {
+  if (tt > TK_ERROR) {
     printf("UNKNOWN");
   } else {
-    printf("%-8s", TOKEN_NAMES[t.type]);
-  }
+    printf("%-8s", TOKEN_NAMES[tt]);
+  } 
+}
+
+void print_token(Token t) {
+  printf("{");
+  print_token_type(t.type);
   printf("| %.*s }\n", t.len, t.pos);
 }
 
