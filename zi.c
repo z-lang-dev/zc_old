@@ -62,7 +62,7 @@ long gen_expr(Node *node) {
       return get_val(node->name[0]);
     default:
       printf("【错误】：不支持的节点：");
-      print_node(node);
+      print_node(node, 0);
       printf("\n");
       return 0;
   }
@@ -70,7 +70,7 @@ long gen_expr(Node *node) {
 
 // 解释表达式源码
 // 现在支持：1; 1+1; 2-1;
-int interpret(char *src) {
+int interpret(const char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
   Node *prog= program();

@@ -25,6 +25,12 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     lex(argv[2]);
+  } else if (strcmp(cmd, "p") == 0) { // 语法分析
+    if (argc < 3) {
+      printf("缺少源码\n");
+      return 1;
+    }
+    parse(argv[2]);
   } else { // 编译
     char *src = cmd;
     compile(src);
@@ -105,7 +111,7 @@ static void gen_expr(Node *node, FILE *fp) {
 }
 
 // 编译表达式源码
-void compile(char *src) {
+void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
   // 打开目标汇编文件，并写入汇编代码

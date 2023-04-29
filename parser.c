@@ -1,5 +1,7 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "zc.h"
 
@@ -7,21 +9,74 @@ Token cur_tok;
 Token prev_tok;
 
 static const char* const NODE_TYPE_NAMES[] = {
-  [ND_NUM] = "ND_NUM",
-  [ND_PLUS] = "ND_PLUS",
-  [ND_MINUS] = "ND_MINUS",
-  [ND_MUL] = "ND_MUL",
-  [ND_DIV] = "ND_DIV",
-  [ND_EXPR] = "ND_EXPR",
-  [ND_ASN] = "ND_ASN",
-  [ND_IDENT] = "ND_IDENT",
+  [ND_NUM] = "NUM",
+  [ND_PLUS] = "PLUS",
+  [ND_MINUS] = "MINUS",
+  [ND_MUL] = "MUL",
+  [ND_DIV] = "DIV",
+  [ND_EXPR] = "EXPR",
+  [ND_ASN] = "ASN",
+  [ND_IDENT] = "IDENT",
 };
 
-void print_node(Node *node) {
+static void print_level(int level) {
+  for (int i = 0; i < level; i++) {
+    printf("  ");
+  }
+}
+
+static void print_binary(Node *lhs, char op, Node *rhs, int level) {
+  print_node(lhs, level);
+  if (rhs != NULL) {
+    print_level(level);
+    printf("%c\n", op);
+    print_node(rhs, level);
+  }
+}
+
+
+void print_node(Node *node, int level) {
   if (node == NULL) {
     return;
   }
-  printf("%s", NODE_TYPE_NAMES[node->type]);
+  print_level(level);
+  printf("(%s", NODE_TYPE_NAMES[node->type]);
+  switch (node->type) {
+  case ND_NUM:
+    printf(" %ld", node->val);
+    break;
+  case ND_IDENT:
+    printf(" %s", node->name);
+    break;
+  case ND_ASN:
+    printf("\n");
+    print_binary(node->lhs, '=', node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_PLUS:
+    printf("\n");
+    print_binary(node->lhs, '+', node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_MINUS:
+    printf("\n");
+    print_binary(node->lhs, '-', node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_MUL:
+    printf("\n");
+    print_binary(node->lhs, '*', node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_DIV:
+    printf("\n");
+    print_binary(node->lhs, '/', node->rhs, level+1);
+    print_level(level);
+    break;
+  default:
+    break;
+  }
+  printf(")\n");
 }
 
 static void advance(void) {
@@ -151,7 +206,7 @@ static Node *primary(void) {
 
 static Node *ident(void) {
   Node *node = new_node(ND_IDENT);
-  node->name = cur_tok.pos;
+  node->name = strndup(cur_tok.pos, cur_tok.len);
   advance();
   return node;
 }
@@ -164,3 +219,12 @@ static Node *number(void) {
   return node;
 }
 
+
+void parse(const char *src) {
+  new_lexer(src);
+  Node *node = program();
+  for (Node *n = node; n; n = n->next) {
+    print_node(n, 0);
+  }
+  printf("\n");
+}

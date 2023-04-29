@@ -79,7 +79,7 @@ struct Node {
   long val; // 整数值
 };
 
-void print_node(Node *node);
+void print_node(Node *node, int level);
 
 Node *program(void);
 
@@ -90,8 +90,11 @@ Node *program(void);
 // 词法分析
 void lex(const char *src);
 
+// 语法分析
+void parse(const char *src);
+
 // 求值
-int interpret(char *src);
+int interpret(const char *src);
 
 // 编译
-void compile(char *src);
+void compile(const char *src);
