@@ -7,6 +7,7 @@
 
 Token cur_tok;
 Token prev_tok;
+Obj *locals;
 
 static const char* const NODE_TYPE_NAMES[] = {
   [ND_NUM] = "NUM",
@@ -33,7 +34,6 @@ static void print_binary(Node *lhs, char op, Node *rhs, int level) {
     print_node(rhs, level);
   }
 }
-
 
 void print_node(Node *node, int level) {
   if (node == NULL) {
@@ -79,6 +79,17 @@ void print_node(Node *node, int level) {
   printf(")\n");
 }
 
+// 查看名符是否已经在locals中记录了。
+// TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
+static Obj *find_ident(Token *tok) {
+  for (Obj *obj = locals; obj; obj = obj->next) {
+    if (tok->len == strlen(obj->name) && !strncmp(tok->pos, obj->name, tok->len)) {
+      return obj;
+    }
+  }
+  return NULL;
+}
+
 static void advance(void) {
   prev_tok = cur_tok;
   cur_tok = next_token();
@@ -95,6 +106,22 @@ static Node *new_binary(NodeType type, Node *lhs, Node *rhs) {
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
+}
+
+static Node *new_ident_node(Obj *obj) {
+  Node *node = new_node(ND_IDENT);
+  node->name = obj->name;
+  node->obj = obj;
+  return node;
+}
+
+// 存储局部值量
+static Obj *new_local(char *name) {
+  Obj *obj = calloc(1, sizeof(Obj));
+  obj->name = name;
+  obj->next = locals;
+  locals = obj;
+  return obj;
 }
 
 static bool peek(TokenType type) {
@@ -130,7 +157,7 @@ static Node *ident(void);
 static Node *number(void);
 
 // program = expr*
-Node *program(void) {
+Func *program(void) {
   advance();
   Node head;
   Node *cur = &head;
@@ -139,7 +166,11 @@ Node *program(void) {
     // 表达式后面要有分号、换行或EOF
     expect_expr_sep();
   }
-  return head.next;
+
+  Func *prog = calloc(1, sizeof(Func));
+  prog->body = head.next;
+  prog->locals = locals;
+  return prog;
 }
 
 
@@ -205,10 +236,12 @@ static Node *primary(void) {
 }
 
 static Node *ident(void) {
-  Node *node = new_node(ND_IDENT);
-  node->name = strndup(cur_tok.pos, cur_tok.len);
+  Obj *obj = find_ident(&cur_tok);
+  if (obj == NULL) {
+    obj = new_local(strndup(cur_tok.pos, cur_tok.len));
+  }
   advance();
-  return node;
+  return new_ident_node(obj);
 }
 
 // number = [0-9]+
@@ -222,9 +255,12 @@ static Node *number(void) {
 
 void parse(const char *src) {
   new_lexer(src);
-  Node *node = program();
-  for (Node *n = node; n; n = n->next) {
+  Func *main = program();
+  for (Node *n = main->body; n; n = n->next) {
     print_node(n, 0);
+  }
+  for (Obj *o = main->locals; o; o = o->next) {
+    printf("[%s]\t", o->name);
   }
   printf("\n");
 }

@@ -32,6 +32,10 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 多个字符的变量
+test 2 "frog=3; fox=5; fox-frog"
+test 41 "abc=41;abc"
+
 # 单个字符的变量
 test 41 "a=41;a"
 test 5 "a=3;b=a+2;b"

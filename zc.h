@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 
+typedef struct Node Node;
+
 
 // 版本号
 static const char *ZC_VERSION = "0.0.1";
@@ -32,7 +34,7 @@ typedef struct Token Token;
 struct Token {
   TokenType type; // 类型
   const char *pos; // 词符在代码中的位置
-  int len; // 词符长度
+  size_t len; // 词符长度
 };
 
 // 新建一个词法分析器，接收src源码 
@@ -48,6 +50,22 @@ void print_token(Token t);
 // 语法分析
 // =============================
 
+// 值量
+typedef struct Obj Obj;
+struct Obj {
+  Obj *next; // 下一个值量
+  char *name; // 名称
+  int offset; // 相对RBP的偏移量
+};
+
+// 函数
+typedef struct Func Func;
+struct Func {
+  Node *body; // 函数的主体
+  Obj *locals; // 所有的局部值量
+  int stack_size; // 栈的尺寸
+};
+
 // 节点类型
 typedef enum {
   ND_NUM, // 整数
@@ -61,7 +79,6 @@ typedef enum {
 } NodeType;
 
 // 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
-typedef struct Node Node;
 struct Node {
   NodeType type; // 类型
 
@@ -75,13 +92,18 @@ struct Node {
   Node *lhs; // 左子节点
   Node *rhs; // 右子节点
 
+  // 如果是名符类型，这里放的是对应的值量
+  Obj *obj; // 值量
+
   // 普通数字
   long val; // 整数值
 };
 
+// 打印AST节点
 void print_node(Node *node, int level);
 
-Node *program(void);
+// 解析一段代码
+Func *program(void);
 
 // =============================
 // 各个命令

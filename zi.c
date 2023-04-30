@@ -4,15 +4,15 @@
 
 #include "zc.h"
 
-// 现在只支持单字母的变量，且只支持数字类型，因此使用一个数组就可以覆盖所有情况了
-long values[26] = {0};
+// 现在值量的类型只有长整数，因此用一个数组来存储。最多支持2048个值量。这个数组的下标就是parser.c的locals中的offset字段。
+long values[2048] = {0};
 
-static void set_val(char name, long val) {
-  values[name - 'a'] = val;
+static void set_val(Obj *obj, long val) {
+  values[obj->offset] = val;
 }
 
-static long get_val(char name) {
-  return values[name - 'a'];
+static long get_val(Obj *obj) {
+  return values[obj->offset];
 }
 
 static void help(void) {
@@ -50,16 +50,16 @@ long gen_expr(Node *node) {
     case ND_DIV:
       return gen_expr(node->lhs) / gen_expr(node->rhs);
     case ND_ASN: {
-      char name = node->lhs->name[0];
       long val = 0;
       if (node->rhs) {
         val = gen_expr(node->rhs);
       }
-      set_val(name, val);
+      Node *ident = node->lhs;
+      set_val(ident->obj, val);
       return val;
     }
     case ND_IDENT:
-      return get_val(node->name[0]);
+      return get_val(node->obj);
     default:
       printf("【错误】：不支持的节点：");
       print_node(node, 0);
@@ -68,14 +68,22 @@ long gen_expr(Node *node) {
   }
 }
 
+static void set_local_offsets(Obj *locals) {
+  int offset = 0;
+  for (Obj *obj= locals; obj; obj = obj->next) {
+    obj->offset = offset++;
+  }
+}
+
 // 解释表达式源码
 // 现在支持：1; 1+1; 2-1;
 int interpret(const char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
-  Node *prog= program();
+  Func *prog= program();
+  set_local_offsets(prog->locals);
   long r = 0;
-  for (Node *e = prog; e; e = e->next) {
+  for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);
     printf("%ld\n", r);
   }

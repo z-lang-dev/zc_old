@@ -49,7 +49,7 @@ static void pop(char *reg, FILE *fp) {
 
 static void gen_addr(Node *node, FILE *fp) {
   if (node->type == ND_IDENT) {
-    int offset = (node->name[0] - 'a' + 1) * 8;
+    int offset = node->obj->offset;
     fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
   } else {
@@ -110,6 +110,20 @@ static void gen_expr(Node *node, FILE *fp) {
 
 }
 
+// 把n对齐到align的倍数，例如 align_to(13, 8) => 16
+static int align_to(int n, int align) {
+  return (n + align - 1) / align * align;
+}
+
+static void set_local_offsets(Func *prog) {
+  int offset = 0;
+  for (Obj *obj= prog->locals; obj; obj = obj->next) {
+    offset += 8;
+    obj->offset = offset;
+  }
+  prog->stack_size = align_to(offset, 16);
+}
+
 // 编译表达式源码
 void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
@@ -126,8 +140,9 @@ void compile(const char *src) {
   fprintf(fp, "  sub rsp, 208\n"); // 为a~z的26个变量分配空间
 
   new_lexer(src);
-  Node *prog = program();
-  for (Node *n = prog; n; n = n->next) {
+  Func *prog = program();
+  set_local_offsets(prog);
+  for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n, fp);
   }
 

@@ -44,7 +44,7 @@ static Token make_token(TokenType type) {
   Token token;
   token.type = type;
   token.pos = lexer.start;
-  token.len = (int)(lexer.current - lexer.start);
+  token.len = lexer.current - lexer.start;
   return token;
 }
 
@@ -170,7 +170,7 @@ static void print_token_type(TokenType tt) {
 void print_token(Token t) {
   printf("{");
   print_token_type(t.type);
-  printf("| %.*s }\n", t.len, t.pos);
+  printf("| %.*s }\n", (int)(t.len), t.pos);
 }
 
 // 进行此法分析并打印词符
