@@ -47,6 +47,13 @@ long gen_expr(Node *node) {
         return gen_expr(node->els);
       }
     }
+    case ND_FOR: {
+      long ret = 0;
+      while (gen_expr(node->cond)) {
+        ret = gen_expr(node->body);
+      }
+      return ret;
+    }
     case ND_BLOCK: {
       long ret = 0;
       for (Node *n=node->body; n; n=n->next) {
@@ -64,6 +71,16 @@ long gen_expr(Node *node) {
       return gen_expr(node->lhs) * gen_expr(node->rhs);
     case ND_DIV:
       return gen_expr(node->lhs) / gen_expr(node->rhs);
+    case ND_EQ:
+      return gen_expr(node->lhs) == gen_expr(node->rhs);
+    case ND_NE:
+      return gen_expr(node->lhs) != gen_expr(node->rhs);
+    case ND_LT:
+      return gen_expr(node->lhs) < gen_expr(node->rhs);
+    case ND_LE:
+      return gen_expr(node->lhs) <= gen_expr(node->rhs);
+    case ND_NOT:
+      return !gen_expr(node->lhs);
     case ND_ASN: {
       long val = 0;
       if (node->rhs) {

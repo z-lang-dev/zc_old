@@ -69,14 +69,25 @@ static void gen_expr(Node *node, FILE *fp) {
       int c = count();
       gen_expr(node->cond, fp);
       fprintf(fp, "  cmp rax, 0\n");
-      fprintf(fp, "  je .Lelse%d\n", c);
+      fprintf(fp, "  je .L.else.%d\n", c);
       gen_expr(node->then, fp);
-      fprintf(fp, "  jmp .Lend%d\n", c);
-      fprintf(fp, ".Lelse%d:\n", c);
+      fprintf(fp, "  jmp .L.end.%d\n", c);
+      fprintf(fp, ".L.else.%d:\n", c);
       if (node->els) {
         gen_expr(node->els, fp);
       }
-      fprintf(fp, ".Lend%d:\n", c);
+      fprintf(fp, ".L.end.%d:\n", c);
+      return;
+    }
+    case ND_FOR: {
+      int c = count();
+      fprintf(fp, ".L.begin.%d:\n", c);
+      gen_expr(node->cond, fp);
+      fprintf(fp, "  cmp rax, 0\n");
+      fprintf(fp, "  je .L.end.%d\n", c);
+      gen_expr(node->body, fp);
+      fprintf(fp, "  jmp .L.begin.%d\n", c);
+      fprintf(fp, ".L.end.%d:\n", c);
       return;
     }
     case ND_BLOCK: {
@@ -129,6 +140,23 @@ static void gen_expr(Node *node, FILE *fp) {
       fprintf(fp, "  cqo\n");
       fprintf(fp, "  idiv rdi\n");
       return;
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE: {
+      fprintf(fp, "  cmp rax, rdi\n");
+      if (node->type == ND_EQ) {
+        fprintf(fp, "  sete al\n");
+      } else if (node->type == ND_NE) {
+        fprintf(fp, "  setne al\n");
+      } else if (node->type == ND_LT) {
+        fprintf(fp, "  setl al\n");
+      } else if (node->type == ND_LE) {
+        fprintf(fp, "  setle al\n");
+      }
+      fprintf(fp, "  movzx rax, al\n");
+      return;
+    }
     default:
       printf("【错误】：不支持的运算符：%c\n", node->type);
   }
@@ -159,14 +187,16 @@ void compile(const char *src) {
   fprintf(fp, "  .global main\n");
   fprintf(fp, "main:\n");
 
-  // Prologue
-  fprintf(fp, "  push rbp\n");
-  fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, 208\n"); // 为a~z的26个变量分配空间
 
   new_lexer(src);
   Func *prog = program();
   set_local_offsets(prog);
+
+  // Prologue
+  fprintf(fp, "  push rbp\n");
+  fprintf(fp, "  mov rbp, rsp\n");
+  fprintf(fp, "  sub rsp, %d\n", prog->stack_size);
+
   for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n, fp);
   }

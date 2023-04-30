@@ -15,11 +15,17 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_MINUS] = "MINUS",
   [ND_MUL] = "MUL",
   [ND_DIV] = "DIV",
+  [ND_NOT] = "NOT",
+  [ND_EQ] = "EQ",
+  [ND_NE] = "NE",
+  [ND_LT] = "LT",
+  [ND_LE] = "LE",
   [ND_EXPR] = "EXPR",
   [ND_ASN] = "ASN",
   [ND_IDENT] = "IDENT",
   [ND_BLOCK] = "BLOCK",
   [ND_IF] = "IF",
+  [ND_FOR] = "FOR",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -36,11 +42,11 @@ static void print_level(int level) {
   }
 }
 
-static void print_binary(Node *lhs, char op, Node *rhs, int level) {
+static void print_binary(Node *lhs, const char *op, Node *rhs, int level) {
   print_node(lhs, level);
   if (rhs != NULL) {
     print_level(level);
-    printf("%c\n", op);
+    printf("%s\n", op);
     print_node(rhs, level);
   }
 }
@@ -61,27 +67,52 @@ void print_node(Node *node, int level) {
     break;
   case ND_ASN:
     printf("\n");
-    print_binary(node->lhs, '=', node->rhs, level+1);
+    print_binary(node->lhs, "=", node->rhs, level+1);
     print_level(level);
     break;
   case ND_PLUS:
     printf("\n");
-    print_binary(node->lhs, '+', node->rhs, level+1);
+    print_binary(node->lhs, "+", node->rhs, level+1);
     print_level(level);
     break;
   case ND_MINUS:
     printf("\n");
-    print_binary(node->lhs, '-', node->rhs, level+1);
+    print_binary(node->lhs, "-", node->rhs, level+1);
     print_level(level);
     break;
   case ND_MUL:
     printf("\n");
-    print_binary(node->lhs, '*', node->rhs, level+1);
+    print_binary(node->lhs, "*", node->rhs, level+1);
     print_level(level);
     break;
   case ND_DIV:
     printf("\n");
-    print_binary(node->lhs, '/', node->rhs, level+1);
+    print_binary(node->lhs, "/", node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_EQ:
+    printf("\n");
+    print_binary(node->lhs, "==", node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_LT:
+    printf("\n");
+    print_binary(node->lhs, "<", node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_LE:
+    printf("\n");
+    print_binary(node->lhs, "<=", node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_NOT:
+    printf("\n");
+    print_binary(node->lhs, "!", node->rhs, level+1);
+    print_level(level);
+    break;
+  case ND_NE:
+    printf("\n");
+    print_binary(node->lhs, "!=", node->rhs, level+1);
     print_level(level);
     break;
   case ND_IF: {
@@ -94,6 +125,12 @@ void print_node(Node *node, int level) {
       printf("(ELSE:  ");
       print_node(node->els, level+1);
     }
+    print_level(level);
+    break;
+  }
+  case ND_FOR: {
+    print_node(node->cond, level+1);
+    print_node(node->body, level+1);
     print_level(level);
     break;
   }
@@ -182,6 +219,8 @@ static void expect_expr_sep(void) {
 
 static Node *expr(void);
 static Node *asn(void);
+static Node *equality(void);
+static Node *relational(void);
 static Node *add(void);
 static Node *mul(void);
 static Node *primary(void);
@@ -220,7 +259,16 @@ static Node *if_expr(void) {
     return node;
 }
 
+static Node *for_expr(void) {
+  Node *node = new_node(ND_FOR);
+  // TODO: 这里的条件应当不允许赋值等操作，而只允许返回值为bool的表达式
+  node->cond = expr();
+  node->body = block();
+  return node;
+}
+
 // expr = "if" "(" expr ")" block ("else" block)?
+//      | "for" expr block
 //      | asn
 static Node *expr(void) {
   while (match(TK_SEMI)) {
@@ -229,6 +277,11 @@ static Node *expr(void) {
   // if
   if (match(TK_IF)) {
     return if_expr();
+  }
+
+  // for
+  if (match(TK_FOR)) {
+    return for_expr();
   }
   // asn
   return asn();
@@ -254,13 +307,45 @@ static Node *block(void) {
   return node;
 }
 
-// asn = add ("=" asn)?
+// asn = equality ("=" asn)?
 static Node *asn(void) {
-  Node *node = add();
+  Node *node = equality();
   if (match(TK_ASN)) {
     node = new_binary(ND_ASN, node, asn());
   }
   return node;
+}
+
+// equality = relational ("==" relational | "!=" relational)*
+static Node *equality(void) {
+  Node *node = relational();
+  for (;;) {
+    if (match(TK_EQ)) {
+      node = new_binary(ND_EQ, node, relational());
+    } else if (match(TK_NE)) {
+      node = new_binary(ND_NE, node, relational());
+    } else {
+      return node;
+    }
+  }
+}
+
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+static Node *relational(void) {
+  Node *node = add();
+  for (;;) {
+    if (match(TK_LT)) {
+      node = new_binary(ND_LT, node, add());
+    } else if (match(TK_LE)) {
+      node = new_binary(ND_LE, node, add());
+    } else if (match(TK_GT)) {
+      node = new_binary(ND_LT, add(), node);
+    } else if (match(TK_GE)) {
+      node = new_binary(ND_LE, add(), node);
+    } else {
+      return node;
+    }
+  }
 }
 
 // add = mul ("+" mul | "-" mul )*

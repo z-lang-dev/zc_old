@@ -32,7 +32,13 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# for
+test 5 "a=0; for a<5 {a=a+1}; a"
+test 30 "a=0; for a<15 {a=a+1}; a*2"
+
+
 # if-else
+test 2 "if 1<0 {1} else {2}"
 test 2 "if 1 {2} else {3}"
 test 3 "if 0 {2} else {3}"
 test 4 "if 0 {2} else if 0 {3} else {4}"

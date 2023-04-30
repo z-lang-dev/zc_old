@@ -45,12 +45,19 @@ static const char* const TOKEN_NAMES[] = {
   [TK_MUL] = "TK_MUL",
   [TK_DIV] = "TK_DIV",
   [TK_ASN] = "TK_ASN",
+  [TK_GT] = "TK_GT",
+  [TK_LT] = "TK_LT",
+  [TK_GE] = "TK_GE",
+  [TK_LE] = "TK_LE",
+  [TK_EQ] = "TK_EQ",
+  [TK_NE] = "TK_NE",
   [TK_LPAREN] = "TK_LPAREN",
   [TK_RPAREN] = "TK_RPAREN",
   [TK_LCURLY] = "TK_LCURLY",
   [TK_RCURLY] = "TK_RCURLY",
   [TK_IF] = "TK_IF",
   [TK_ELSE] = "TK_ELSE",
+  [TK_FOR] = "TK_FOR",
   [TK_SEMI] = "TK_SEMI",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
@@ -128,8 +135,8 @@ static Token number(void) {
 
 static Token check_keyword(Token tok) {
   // TODO: C没有map，暂时用双数组替代
-  static char *kw[] = {"if", "else"};
-  static TokenType kw_type[] = {TK_IF, TK_ELSE};
+  static char *kw[] = {"if", "else", "for"};
+  static TokenType kw_type[] = {TK_IF, TK_ELSE, TK_FOR};
 
   for (size_t i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     char* op = kw[i];
@@ -146,6 +153,15 @@ static Token ident(void) {
   }
   Token t = make_token(TK_IDENT);
   return check_keyword(t);
+}
+
+static Token make_two_op(char follow, TokenType op1, TokenType op2) {
+  if (peek() == follow) {
+    advance();
+    return make_token(op2);
+  } else {
+    return make_token(op1);
+  }
 }
 
 Token next_token(void) {
@@ -194,7 +210,13 @@ Token next_token(void) {
     case '\n':
       return make_token(TK_NLINE);
     case '=':
-      return make_token(TK_ASN);
+      return make_two_op('=', TK_ASN, TK_EQ);
+    case '>':
+      return make_two_op('=', TK_GT, TK_GE);
+    case '<':
+      return make_two_op('=', TK_LT, TK_LE);
+    case '!':
+      return make_two_op('=', TK_NOT, TK_NE);
   }
 
   error("【错误】：词法解析不支持的运算符：%c\n", c);

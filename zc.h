@@ -21,12 +21,20 @@ typedef enum {
   TK_MUL, // *
   TK_DIV, // /
   TK_ASN, // =
+  TK_NOT, // !
+  TK_GT, // >
+  TK_LT, // <
+  TK_GE, // >=
+  TK_LE, // <=
+  TK_EQ, // ==
+  TK_NE, // !=
   TK_LPAREN, // (
   TK_RPAREN, // )
   TK_LCURLY, // {
   TK_RCURLY, // }
   TK_IF, // if
   TK_ELSE, // else
+  TK_FOR, // for
   TK_SEMI, // ;
   TK_NLINE, // \n
   TK_EOF, // 文件结束
@@ -80,11 +88,17 @@ typedef enum {
   ND_MINUS, // -
   ND_MUL, // *
   ND_DIV, // /
+  ND_NOT, // !
+  ND_EQ, // ==
+  ND_NE, // !=
+  ND_LT, // <
+  ND_LE, // <=
   ND_EXPR, // 表达式
   ND_ASN, // 赋值
   ND_IDENT, // 名符
   ND_BLOCK, // 代码块
   ND_IF, // if
+  ND_FOR, // for
   ND_UNKNOWN, // 未知 
 } NodeType;
 
@@ -105,7 +119,7 @@ struct Node {
   // 代码块
   Node *body; // 代码块的主体
 
-  // if-else
+  // if-else和for
   Node *cond; // 条件
   Node *then; // then
   Node *els; // else
