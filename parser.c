@@ -19,7 +19,16 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_ASN] = "ASN",
   [ND_IDENT] = "IDENT",
   [ND_BLOCK] = "BLOCK",
+  [ND_IF] = "IF",
+  [ND_UNKNOWN] = "UNKNOWN",
 };
+
+static const char* get_node_type_name(NodeType type) {
+  if (type > ND_UNKNOWN) {
+    type = ND_UNKNOWN;
+  }
+  return NODE_TYPE_NAMES[type];
+}
 
 static void print_level(int level) {
   for (int i = 0; i < level; i++) {
@@ -41,7 +50,8 @@ void print_node(Node *node, int level) {
     return;
   }
   print_level(level);
-  printf("(%s", NODE_TYPE_NAMES[node->type]);
+  printf("(%s", get_node_type_name(node->type));
+
   switch (node->type) {
   case ND_NUM:
     printf(" %ld", node->val);
@@ -74,6 +84,27 @@ void print_node(Node *node, int level) {
     print_binary(node->lhs, '/', node->rhs, level+1);
     print_level(level);
     break;
+  case ND_IF: {
+    print_node(node->cond, level+1);
+    print_level(level+1);
+    printf("(THEN:  ");
+    print_node(node->then, level+1);
+    if (node->els != NULL) {
+      print_level(level+1);
+      printf("(ELSE:  ");
+      print_node(node->els, level+1);
+    }
+    print_level(level);
+    break;
+  }
+  case ND_BLOCK: {
+    printf("\n");
+    for (Node *n = node->body; n; n = n->next) {
+      print_node(n, level+1);
+    }
+    print_level(level);
+    break;
+  }
   default:
     break;
   }
@@ -175,11 +206,31 @@ Func *program(void) {
   return prog;
 }
 
-// expr = asn
+static Node *if_expr(void) {
+    Node *node = new_node(ND_IF);
+    node->cond = expr();
+    node->then = block();
+    if (match(TK_ELSE)) {
+      if (match(TK_IF)) {
+        node->els = if_expr();
+      } else {
+        node->els = block();
+      }
+    }
+    return node;
+}
+
+// expr = "if" "(" expr ")" block ("else" block)?
+//      | asn
 static Node *expr(void) {
   while (match(TK_SEMI)) {
     // 跳过空语句
   }
+  // if
+  if (match(TK_IF)) {
+    return if_expr();
+  }
+  // asn
   return asn();
 }
 

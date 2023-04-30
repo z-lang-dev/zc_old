@@ -32,6 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# if-else
+test 2 "if 1 {2} else {3}"
+test 3 "if 0 {2} else {3}"
+test 4 "if 0 {2} else if 0 {3} else {4}"
+
 # 空语句
 test 4 ";;4"
 test 5 ";;{;;5};"

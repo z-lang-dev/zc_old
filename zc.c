@@ -39,6 +39,11 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+static int count(void) {
+  static int i = 1;
+  return i++;
+}
+
 static void push(FILE *fp) {
   fprintf(fp, "  push rax\n");
 }
@@ -60,6 +65,20 @@ static void gen_addr(Node *node, FILE *fp) {
 
 static void gen_expr(Node *node, FILE *fp) {
   switch (node->type) {
+    case ND_IF: {
+      int c = count();
+      gen_expr(node->cond, fp);
+      fprintf(fp, "  cmp rax, 0\n");
+      fprintf(fp, "  je .Lelse%d\n", c);
+      gen_expr(node->then, fp);
+      fprintf(fp, "  jmp .Lend%d\n", c);
+      fprintf(fp, ".Lelse%d:\n", c);
+      if (node->els) {
+        gen_expr(node->els, fp);
+      }
+      fprintf(fp, ".Lend%d:\n", c);
+      return;
+    }
     case ND_BLOCK: {
       for (Node *n=node->body; n; n=n->next) {
         gen_expr(n, fp);

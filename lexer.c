@@ -49,6 +49,8 @@ static const char* const TOKEN_NAMES[] = {
   [TK_RPAREN] = "TK_RPAREN",
   [TK_LCURLY] = "TK_LCURLY",
   [TK_RCURLY] = "TK_RCURLY",
+  [TK_IF] = "TK_IF",
+  [TK_ELSE] = "TK_ELSE",
   [TK_SEMI] = "TK_SEMI",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
@@ -124,9 +126,18 @@ static Token number(void) {
   return make_token(TK_NUM);
 }
 
-static Token check_keyword(Token t) {
-  // TODO: add keywords here
-  return t;
+static Token check_keyword(Token tok) {
+  // TODO: C没有map，暂时用双数组替代
+  static char *kw[] = {"if", "else"};
+  static TokenType kw_type[] = {TK_IF, TK_ELSE};
+
+  for (size_t i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
+    char* op = kw[i];
+    if (strncmp(tok.pos, op, tok.len) == 0 && op[tok.len] == '\0') {
+      tok.type = kw_type[i];
+    }
+  }
+  return tok;
 }
 
 static Token ident(void) {

@@ -25,6 +25,8 @@ typedef enum {
   TK_RPAREN, // )
   TK_LCURLY, // {
   TK_RCURLY, // }
+  TK_IF, // if
+  TK_ELSE, // else
   TK_SEMI, // ;
   TK_NLINE, // \n
   TK_EOF, // 文件结束
@@ -82,6 +84,8 @@ typedef enum {
   ND_ASN, // 赋值
   ND_IDENT, // 名符
   ND_BLOCK, // 代码块
+  ND_IF, // if
+  ND_UNKNOWN, // 未知 
 } NodeType;
 
 // 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
@@ -100,6 +104,11 @@ struct Node {
 
   // 代码块
   Node *body; // 代码块的主体
+
+  // if-else
+  Node *cond; // 条件
+  Node *then; // then
+  Node *els; // else
 
   // 如果是名符类型，这里放的是对应的值量
   Obj *obj; // 值量
