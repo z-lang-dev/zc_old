@@ -32,6 +32,10 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 空语句
+test 4 ";;4"
+test 5 ";;{;;5};"
+
 # 代码块
 test 3 "{3}"
 test 4 "{1;2;3;4}"

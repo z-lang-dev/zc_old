@@ -177,6 +177,9 @@ Func *program(void) {
 
 // expr = asn
 static Node *expr(void) {
+  while (match(TK_SEMI)) {
+    // 跳过空语句
+  }
   return asn();
 }
 
