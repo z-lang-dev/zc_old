@@ -60,6 +60,12 @@ static void gen_addr(Node *node, FILE *fp) {
 
 static void gen_expr(Node *node, FILE *fp) {
   switch (node->type) {
+    case ND_BLOCK: {
+      for (Node *n=node->body; n; n=n->next) {
+        gen_expr(n, fp);
+      }
+      return;
+    }
     case ND_NUM:
       fprintf(fp, "  mov rax, %ld\n", node->val);
       return;

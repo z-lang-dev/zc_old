@@ -23,6 +23,8 @@ typedef enum {
   TK_ASN, // =
   TK_LPAREN, // (
   TK_RPAREN, // )
+  TK_LCURLY, // {
+  TK_RCURLY, // }
   TK_SEMI, // ;
   TK_NLINE, // \n
   TK_EOF, // 文件结束
@@ -79,6 +81,7 @@ typedef enum {
   ND_EXPR, // 表达式
   ND_ASN, // 赋值
   ND_IDENT, // 名符
+  ND_BLOCK, // 代码块
 } NodeType;
 
 // 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
@@ -94,6 +97,9 @@ struct Node {
   // 二元运算符
   Node *lhs; // 左子节点
   Node *rhs; // 右子节点
+
+  // 代码块
+  Node *body; // 代码块的主体
 
   // 如果是名符类型，这里放的是对应的值量
   Obj *obj; // 值量

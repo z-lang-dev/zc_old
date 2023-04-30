@@ -39,6 +39,13 @@ int main(int argc, char *argv[]) {
 
 long gen_expr(Node *node) {
   switch (node->type) {
+    case ND_BLOCK: {
+      long ret = 0;
+      for (Node *n=node->body; n; n=n->next) {
+        ret = gen_expr(n);
+      }
+      return ret;
+    }
     case ND_NUM:
       return node->val;
     case ND_PLUS:

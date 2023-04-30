@@ -47,6 +47,8 @@ static const char* const TOKEN_NAMES[] = {
   [TK_ASN] = "TK_ASN",
   [TK_LPAREN] = "TK_LPAREN",
   [TK_RPAREN] = "TK_RPAREN",
+  [TK_LCURLY] = "TK_LCURLY",
+  [TK_RCURLY] = "TK_RCURLY",
   [TK_SEMI] = "TK_SEMI",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
@@ -172,6 +174,10 @@ Token next_token(void) {
       return make_token(TK_LPAREN);
     case ')':
       return make_token(TK_RPAREN);
+    case '{':
+      return make_token(TK_LCURLY);
+    case '}':
+      return make_token(TK_RCURLY);
     case ';':
       return make_token(TK_SEMI);
     case '\n':

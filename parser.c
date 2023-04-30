@@ -18,6 +18,7 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_EXPR] = "EXPR",
   [ND_ASN] = "ASN",
   [ND_IDENT] = "IDENT",
+  [ND_BLOCK] = "BLOCK",
 };
 
 static void print_level(int level) {
@@ -153,6 +154,7 @@ static Node *asn(void);
 static Node *add(void);
 static Node *mul(void);
 static Node *primary(void);
+static Node *block(void);
 static Node *ident(void);
 static Node *number(void);
 
@@ -173,10 +175,29 @@ Func *program(void) {
   return prog;
 }
 
-
 // expr = asn
 static Node *expr(void) {
   return asn();
+}
+
+// block = "{" expr* "}"
+static Node *block(void) {
+  if (!match(TK_LCURLY)) {
+    error_tok(&cur_tok, "expected '{'\n");
+    exit(1);
+  }
+  Node head;
+  Node *cur = &head;
+  while (!peek(TK_RCURLY)) {
+    cur = cur->next = expr();
+  }
+  if (!match(TK_RCURLY)) {
+    error_tok(&cur_tok, "expected '}'\n");
+    exit(1);
+  }
+  Node *node = new_node(ND_BLOCK);
+  node->body = head.next;
+  return node;
 }
 
 // asn = add ("=" asn)?
@@ -226,6 +247,10 @@ static Node *primary(void) {
       exit(1);
     }
     return node;
+  }
+
+  if (peek(TK_LCURLY)) {
+    return block();
   }
 
   if (peek(TK_IDENT)) {
