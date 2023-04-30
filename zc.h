@@ -46,6 +46,9 @@ Token next_token(void);
 // 打印词符
 void print_token(Token t);
 
+// 打印错误信息
+void error_tok(Token *tok, char *fmt, ...);
+
 // =============================
 // 语法分析
 // =============================

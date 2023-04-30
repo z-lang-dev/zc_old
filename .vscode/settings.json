@@ -11,6 +11,8 @@
         "functional": "c",
         "zc.h": "c",
         "cctype": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "fstream": "c",
+        "istream": "c"
     }
 }

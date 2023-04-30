@@ -143,7 +143,7 @@ static void expect_expr_sep(void) {
   if (peek(TK_EOF)) {
     return;
   }
-  fprintf(stderr, "expected ';', newline or EOF\n");
+  error_tok(&prev_tok, "expected ';', newline or EOF\n");
   exit(1);
 }
 
@@ -222,7 +222,7 @@ static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
     if (!match(TK_RPAREN)) {
-      fprintf(stderr, "expected ')'\n");
+      error_tok(&cur_tok, "expected ')'\n");
       exit(1);
     }
     return node;

@@ -1,16 +1,41 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 #include "zc.h"
 
 // 词法分析器
 typedef struct Lexer Lexer;
 struct Lexer {
+  const char* line;
   const char* start; // 当前解析位置的开始位置，每解析完一个词符之后会更新。
   const char* current;  // 解析过程中的当前位置。一个词符解析完成时，current-start 就是词符的长度。
 };
 
 Lexer lexer;
+
+static void verror(const char* loc, char *fmt, va_list ap) {
+  int n = loc - lexer.line;
+  fprintf(stderr, "%s \n", lexer.line);
+  fprintf(stderr, "%*s", n, ""); // 输出pos个空格
+  fprintf(stderr, "^ ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
+static void error(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verror(lexer.current-1, fmt, ap);
+}
+
+void error_tok(Token *tok, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verror(tok->pos, fmt, ap);
+}
 
 static const char* const TOKEN_NAMES[] = {
   [TK_IDENT] = "TK_IDENT",
@@ -32,6 +57,7 @@ static const char* const TOKEN_NAMES[] = {
 void new_lexer(const char *src) {
   lexer.start = src;
   lexer.current = src;
+  lexer.line = src;
 }
 
 // 判断是否到源码末尾
@@ -154,7 +180,7 @@ Token next_token(void) {
       return make_token(TK_ASN);
   }
 
-  printf("【错误】：词法解析不支持的运算符：%c\n", c);
+  error("【错误】：词法解析不支持的运算符：%c\n", c);
   return make_token(TK_ERROR);
 
 }
