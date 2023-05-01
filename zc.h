@@ -93,6 +93,7 @@ typedef enum {
   ND_NE, // !=
   ND_LT, // <
   ND_LE, // <=
+  ND_NEG, // 负数
   ND_EXPR, // 表达式
   ND_ASN, // 赋值
   ND_IDENT, // 名符
@@ -105,6 +106,7 @@ typedef enum {
 // 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
 struct Node {
   NodeType type; // 类型
+  Token *token; // 对应的词符
 
   // 名符
   const char *name; // 名称

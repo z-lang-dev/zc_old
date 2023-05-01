@@ -81,6 +81,8 @@ long gen_expr(Node *node) {
       return gen_expr(node->lhs) <= gen_expr(node->rhs);
     case ND_NOT:
       return !gen_expr(node->lhs);
+    case ND_NEG:
+      return -gen_expr(node->rhs);
     case ND_ASN: {
       long val = 0;
       if (node->rhs) {
@@ -93,7 +95,7 @@ long gen_expr(Node *node) {
     case ND_IDENT:
       return get_val(node->obj);
     default:
-      printf("【错误】：不支持的节点：");
+      error_tok(node->token, "【错误】：不支持的节点：");
       print_node(node, 0);
       printf("\n");
       return 0;

@@ -58,7 +58,7 @@ static void gen_addr(Node *node, FILE *fp) {
     fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
   } else {
-    printf("【错误】：不支持的类型：%d\n", node->type);
+    error_tok(node->token, "【错误】：不支持的类型：%d\n", node->type);
     exit(1);
   }
 }
@@ -98,6 +98,10 @@ static void gen_expr(Node *node, FILE *fp) {
     }
     case ND_NUM:
       fprintf(fp, "  mov rax, %ld\n", node->val);
+      return;
+    case ND_NEG:
+      gen_expr(node->rhs, fp);
+      fprintf(fp, "  neg rax\n");
       return;
     case ND_IDENT:
       gen_addr(node, fp);
@@ -158,7 +162,7 @@ static void gen_expr(Node *node, FILE *fp) {
       return;
     }
     default:
-      printf("【错误】：不支持的运算符：%c\n", node->type);
+      error_tok(node->token, "【错误】：不支持的运算符：%c\n", node->type);
   }
 
 }

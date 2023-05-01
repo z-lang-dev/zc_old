@@ -20,6 +20,7 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_NE] = "NE",
   [ND_LT] = "LT",
   [ND_LE] = "LE",
+  [ND_NEG] = "NEG",
   [ND_EXPR] = "EXPR",
   [ND_ASN] = "ASN",
   [ND_IDENT] = "IDENT",
@@ -115,6 +116,10 @@ void print_node(Node *node, int level) {
     print_binary(node->lhs, "!=", node->rhs, level+1);
     print_level(level);
     break;
+  case ND_NEG:
+    print_node(node->rhs, level+1);
+    print_level(level);
+    break;
   case ND_IF: {
     print_node(node->cond, level+1);
     print_level(level+1);
@@ -167,12 +172,19 @@ static void advance(void) {
 static Node *new_node(NodeType type) {
   Node *node = calloc(1, sizeof(Node));
   node->type = type;
+  node->token = &cur_tok;
   return node;
 }
 
 static Node *new_binary(NodeType type, Node *lhs, Node *rhs) {
   Node *node = new_node(type);
   node->lhs = lhs;
+  node->rhs = rhs;
+  return node;
+}
+
+static Node *new_unary(NodeType type, Node *rhs) {
+  Node *node = new_node(type);
   node->rhs = rhs;
   return node;
 }
@@ -223,6 +235,7 @@ static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
 static Node *mul(void);
+static Node *unary(void);
 static Node *primary(void);
 static Node *block(void);
 static Node *ident(void);
@@ -363,18 +376,29 @@ static Node *add(void) {
   return node;
 }
 
-// mul = primary ("*" primary | "/" primary )*
+// mul = unary ("*" unary | "/" unary )*
 static Node *mul(void) {
-  Node *node = primary();
+  Node *node = unary();
   for (;;) {
     if (match(TK_MUL)) {
-      node = new_binary(ND_MUL, node, primary());
+      node = new_binary(ND_MUL, node, unary());
     } else if (match(TK_DIV)) {
-      node = new_binary(ND_DIV, node, primary());
+      node = new_binary(ND_DIV, node, unary());
     } else {
       return node;
     }
   }
+}
+
+// unary = ("+" | "-")? primary
+static Node *unary(void) {
+  if (match(TK_PLUS)) {
+    return primary();
+  }
+  if (match(TK_MINUS)) {
+    return new_unary(ND_NEG, primary());
+  }
+  return primary();
 }
 
 // primary = "(" expr ")" | ident | number

@@ -32,6 +32,9 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 负数
+test 3 "-1+4"
+
 # for
 test 5 "a=0; for a<5 {a=a+1}; a"
 test 30 "a=0; for a<15 {a=a+1}; a*2"
