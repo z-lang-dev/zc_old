@@ -36,8 +36,8 @@ test() {
 test 3 "-1+4"
 
 # for
-test 5 "a=0; for a<5 {a=a+1}; a"
-test 30 "a=0; for a<15 {a=a+1}; a*2"
+test 5 "let a=0; for a<5 {a=a+1}; a"
+test 30 "let a=0; for a<15 {a=a+1}; a*2"
 
 
 # if-else
@@ -53,15 +53,15 @@ test 5 ";;{;;5};"
 # 代码块
 test 3 "{3}"
 test 4 "{1;2;3;4}"
-test 13 "a={1;2;3+10}"
+test 13 "let a={1;2;3+10}"
 
 # 多个字符的变量
-test 2 "frog=3; fox=5; fox-frog"
-test 41 "abc=41;abc"
+test 2 "let frog=3; let fox=5; fox-frog"
+test 41 "let abc=41;abc"
 
 # 单个字符的变量
-test 41 "a=41;a"
-test 5 "a=3;b=a+2;b"
+test 41 "let a=41;a"
+test 5 "let a=3;let b=a+2;b"
 
 # 多个表达式
 test 3 "1;2;3"

@@ -32,6 +32,7 @@ typedef enum {
   TK_RPAREN, // )
   TK_LCURLY, // {
   TK_RCURLY, // }
+  TK_LET, // let
   TK_IF, // if
   TK_ELSE, // else
   TK_FOR, // for

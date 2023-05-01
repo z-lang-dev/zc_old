@@ -55,6 +55,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_RPAREN] = "TK_RPAREN",
   [TK_LCURLY] = "TK_LCURLY",
   [TK_RCURLY] = "TK_RCURLY",
+  [TK_LET] = "TK_LET",
   [TK_IF] = "TK_IF",
   [TK_ELSE] = "TK_ELSE",
   [TK_FOR] = "TK_FOR",
@@ -135,8 +136,8 @@ static Token number(void) {
 
 static Token check_keyword(Token tok) {
   // TODO: C没有map，暂时用双数组替代
-  static char *kw[] = {"if", "else", "for"};
-  static TokenType kw_type[] = {TK_IF, TK_ELSE, TK_FOR};
+  static char *kw[] = {"if", "else", "for", "let"};
+  static TokenType kw_type[] = {TK_IF, TK_ELSE, TK_FOR, TK_LET};
 
   for (size_t i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     char* op = kw[i];

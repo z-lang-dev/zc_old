@@ -230,6 +230,7 @@ static void expect_expr_sep(void) {
 
 
 static Node *expr(void);
+static Node *decl(void);
 static Node *asn(void);
 static Node *equality(void);
 static Node *relational(void);
@@ -282,6 +283,7 @@ static Node *for_expr(void) {
 
 // expr = "if" "(" expr ")" block ("else" block)?
 //      | "for" expr block
+//      | decl
 //      | asn
 static Node *expr(void) {
   while (match(TK_SEMI)) {
@@ -296,8 +298,29 @@ static Node *expr(void) {
   if (match(TK_FOR)) {
     return for_expr();
   }
+
+  // decl
+  if (match(TK_LET)) {
+    return decl();
+  }
+
   // asn
   return asn();
+}
+
+// decl = "let" ident ("=" expr)?
+static Node *decl(void) {
+  if (cur_tok.type != TK_IDENT) {
+    error_tok(&cur_tok, "expected an identifier\n");
+    exit(1);
+  }
+  Obj *obj = new_local(strndup(cur_tok.pos, cur_tok.len));
+  advance();
+  Node *node = new_ident_node(obj);
+  if (match(TK_ASN)) {
+    node = new_binary(ND_ASN, node, expr());
+  }
+  return node;
 }
 
 // block = "{" expr* "}"
@@ -426,7 +449,8 @@ static Node *primary(void) {
 static Node *ident(void) {
   Obj *obj = find_ident(&cur_tok);
   if (obj == NULL) {
-    obj = new_local(strndup(cur_tok.pos, cur_tok.len));
+    error_tok(&cur_tok, "undefined variable: %.*s\n", cur_tok.len, cur_tok.pos);
+    exit(1);
   }
   advance();
   return new_ident_node(obj);
