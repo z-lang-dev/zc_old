@@ -4,6 +4,8 @@
 
 #include "zc.h"
 
+static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
 static void help(void) {
   printf("【用法】：./zc h|v|<源码>\n");
 }
@@ -94,6 +96,19 @@ static void gen_expr(Node *node, FILE *fp) {
       // 这里什么都不做，而是要等当前所在的scope结束之后，再单独生成函数定义相对应的代码
       return;
     case ND_CALL: {
+      int nargs = 0;
+      for (Node *arg = node->args; arg; arg = arg->next) {
+        fprintf(fp, "\t\t# ----- Arg <%ld>\n", arg->val);
+        gen_expr(arg, fp);
+        push(fp);
+        nargs++;
+      }
+
+      for (int i = nargs - 1; i >= 0; i--) {
+        pop(arg_regs[i], fp);
+      }
+
+      fprintf(fp, "\t\t# ----- Calling %s()\n", node->obj->name);
       fprintf(fp, "  mov rax, 0\n");
       fprintf(fp, "  call %s\n", node->obj->name);
       return;
@@ -190,20 +205,32 @@ static void set_local_offsets(Obj *scope) {
 }
 
 static void gen_fn(Obj *fobj, FILE *fp) {
+  fprintf(fp, "\t\t# ===== [Define Function: %s]\n", fobj->name);
   set_local_offsets(fobj);
-  fprintf(fp, "  .global %s\n", fobj->name);
+  fprintf(fp, "\n  .global %s\n", fobj->name);
   fprintf(fp, "%s:\n", fobj->name);
 
   // Prologue
+  fprintf(fp, "\t\t# ----- Prologue\n");
   fprintf(fp, "  push rbp\n");
   fprintf(fp, "  mov rbp, rsp\n");
   fprintf(fp, "  sub rsp, %zu\n", fobj->stack_size);
 
+  // 处理参数
+  fprintf(fp, "\t\t# ----- Handle params\n");
+  int i = 0;
+  for (Obj *p = fobj->params; p; p = p->next) {
+    fprintf(fp, "  mov [rbp-%d], %s\n", p->offset, arg_regs[i++]);
+  }
+
+  fprintf(fp, "\t\t# ----- Function body\n");
+  // 生成函数体
   for (Node *n = fobj->body; n; n = n->next) {
     gen_expr(n, fp);
   }
 
   // Epilogue
+  fprintf(fp, "\t\t# ------ Epilogue\n");
   fprintf(fp, ".L.return.%s:\n", fobj->name);
   fprintf(fp, "  mov rsp, rbp\n");
   fprintf(fp, "  pop rbp\n");
@@ -241,7 +268,6 @@ void compile(const char *src) {
 
   // 生成自定义函数的代码
   for (Obj *obj = prog->obj->locals; obj; obj = obj->next) {
-    printf("obj: %d %s\n", obj->type, obj->name);
     if (obj->type == OBJ_FN) {
       gen_fn(obj, fp);
     }

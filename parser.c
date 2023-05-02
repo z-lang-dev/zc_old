@@ -149,7 +149,17 @@ void print_node(Node *node, int level) {
     break;
   }
   case ND_CALL: {
-    printf("%s()\n", node->name);
+    printf("\n");
+    print_level(level+1);
+    printf("%s(\n", node->obj->name);
+    for (Node *n = node->args; n; n = n->next) {
+      print_node(n, level+2);
+      if (n->next) {
+        printf(", ");
+      }
+    }
+    print_level(level+1);
+    printf(")\n");
     print_level(level);
     break;
   }
@@ -374,6 +384,19 @@ static Node *fn(void) {
   Obj *parent_locals = locals;
   locals = NULL;
 
+  // 解析函数参数
+  if (match(TK_LPAREN)) {
+    while (!match(TK_RPAREN)) {
+      if (locals) {
+        expect(TK_COMMA, "','");
+      }
+      locals = new_local(token_name(&cur_tok));
+      locals->type = OBJ_LET;
+      advance();
+    }
+    fn_obj->params = locals;
+  }
+
   Node *body = block();
   fn_obj->body = body;
   fn_obj->locals = locals;
@@ -522,11 +545,25 @@ static Node *primary(void) {
   return number();
 }
 
+// call = ident "(" (expr ("," expr)*)? ")"
 static Node *call(Obj *obj) {
+  Node arg_head = {0};
+  Node *cur_arg = &arg_head;
+
   expect(TK_LPAREN, "(");
+
+  while (!peek(TK_RPAREN)) {
+    if (cur_arg != &arg_head) {
+      expect(TK_COMMA, ",");
+    }
+    cur_arg = cur_arg->next = expr();
+  }
+
   expect(TK_RPAREN, ")");
+
   Node *node = new_node(ND_CALL);
   node->obj = obj;
+  node->args = arg_head.next;
   return node;
 }
 

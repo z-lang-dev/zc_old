@@ -13,6 +13,12 @@
         "cctype": "c",
         "string.h": "c",
         "fstream": "c",
-        "istream": "c"
+        "istream": "c",
+        "compare": "c",
+        "exception": "c",
+        "algorithm": "c",
+        "initializer_list": "c",
+        "numeric": "c",
+        "type_traits": "c"
     }
 }

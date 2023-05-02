@@ -37,6 +37,13 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+static void set_local_offsets(Obj *locals) {
+  int offset = 0;
+  for (Obj *obj= locals; obj; obj = obj->next) {
+    obj->offset = offset++;
+  }
+}
+
 long gen_expr(Node *node) {
   long ret = 0;
   switch (node->type) {
@@ -55,12 +62,22 @@ long gen_expr(Node *node) {
       return ret;
     }
     case ND_FN: {
-      // TODO: 函数定义暂时不返回东西
+      set_local_offsets(node->obj->locals);
       return 0;
     }
     case ND_CALL: {
-      Obj *obj = node->obj;
-      ret = gen_expr(obj->body);
+      Obj *fobj = node->obj;
+      Obj *param = fobj->params;
+      if (param) {
+        for (Node *n=node->args; n; n=n->next) {
+          long arg = gen_expr(n);
+          if (param) {
+            set_val(param, arg);
+            param = param->next;
+          }
+        }
+      }
+      ret = gen_expr(fobj->body);
       return ret;
     }
     case ND_BLOCK: {
@@ -107,13 +124,6 @@ long gen_expr(Node *node) {
       print_node(node, 0);
       printf("\n");
       return 0;
-  }
-}
-
-static void set_local_offsets(Obj *locals) {
-  int offset = 0;
-  for (Obj *obj= locals; obj; obj = obj->next) {
-    obj->offset = offset++;
   }
 }
 

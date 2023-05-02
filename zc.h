@@ -37,6 +37,7 @@ typedef enum {
   TK_IF, // if
   TK_ELSE, // else
   TK_FOR, // for
+  TK_COMMA, // ,
   TK_SEMI, // ;
   TK_NLINE, // \n
   TK_EOF, // 文件结束
@@ -68,7 +69,7 @@ void error_tok(Token *tok, char *fmt, ...);
 // =============================
 
 typedef enum {
-  OBJ_MUT, // 标量
+  OBJ_LET, // 标量
   OBJ_FN, // 函数
 } ObjType;
 
@@ -84,6 +85,7 @@ struct Obj {
 
   // 函数
   Node *body; // 函数的主体
+  Obj *params; // 函数的参数
   Obj *locals; // 所有的局部值量
   size_t stack_size; // 栈的尺寸
 };
@@ -117,7 +119,7 @@ struct Node {
   NodeType type; // 类型
   Token *token; // 对应的词符
 
-  // 名符
+  // 名符（包括标量、函数、函数调用等）
   const char *name; // 名称
 
   // 表达式
@@ -137,6 +139,9 @@ struct Node {
 
   // 如果是名符类型，这里放的是对应的值量，包括标量、函数等
   Obj *obj; // 值量
+
+  // 函数调用
+  Node *args;
 
   // 普通数字
   long val; // 整数值

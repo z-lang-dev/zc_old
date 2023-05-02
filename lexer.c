@@ -60,6 +60,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_IF] = "TK_IF",
   [TK_ELSE] = "TK_ELSE",
   [TK_FOR] = "TK_FOR",
+  [TK_COMMA] = "TK_COMMA",
   [TK_SEMI] = "TK_SEMI",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
@@ -207,6 +208,8 @@ Token next_token(void) {
       return make_token(TK_LCURLY);
     case '}':
       return make_token(TK_RCURLY);
+    case ',':
+      return make_token(TK_COMMA);
     case ';':
       return make_token(TK_SEMI);
     case '\n':
