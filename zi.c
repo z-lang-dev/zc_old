@@ -114,8 +114,8 @@ static void set_local_offsets(Obj *locals) {
 int interpret(const char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
-  Func *prog= program();
-  set_local_offsets(prog->locals);
+  Node *prog= program();
+  set_local_offsets(prog->obj->locals);
   long r = 0;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);

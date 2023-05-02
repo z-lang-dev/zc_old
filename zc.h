@@ -66,20 +66,25 @@ void error_tok(Token *tok, char *fmt, ...);
 // 语法分析
 // =============================
 
-// 值量
+typedef enum {
+  OBJ_MUT, // 标量
+  OBJ_FN, // 函数
+} ObjType;
+
+// 值量：记录各种值量的编译期信息，未来会包括类型信息等
 typedef struct Obj Obj;
 struct Obj {
   Obj *next; // 下一个值量
+  ObjType type; // 值量类型
   char *name; // 名称
-  int offset; // 相对RBP的偏移量
-};
 
-// 函数
-typedef struct Func Func;
-struct Func {
+  // 标量
+  int offset; // 相对RBP的偏移量
+
+  // 函数
   Node *body; // 函数的主体
   Obj *locals; // 所有的局部值量
-  int stack_size; // 栈的尺寸
+  size_t stack_size; // 栈的尺寸
 };
 
 // 节点类型
@@ -127,7 +132,7 @@ struct Node {
   Node *then; // then
   Node *els; // else
 
-  // 如果是名符类型，这里放的是对应的值量
+  // 如果是名符类型，这里放的是对应的值量，包括标量、函数等
   Obj *obj; // 值量
 
   // 普通数字
@@ -138,7 +143,7 @@ struct Node {
 void print_node(Node *node, int level);
 
 // 解析一段代码
-Func *program(void);
+Node *program(void);
 
 // =============================
 // 各个命令

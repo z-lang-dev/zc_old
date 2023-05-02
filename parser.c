@@ -243,7 +243,7 @@ static Node *ident(void);
 static Node *number(void);
 
 // program = expr*
-Func *program(void) {
+Node *program(void) {
   advance();
   Node head;
   Node *cur = &head;
@@ -253,9 +253,13 @@ Func *program(void) {
     expect_expr_sep();
   }
 
-  Func *prog = calloc(1, sizeof(Func));
+  Node *prog = new_node(ND_BLOCK);
   prog->body = head.next;
-  prog->locals = locals;
+  // prog对应的obj，本质是一个scope
+  Obj *obj= calloc(1, sizeof(Obj));
+  obj->type = OBJ_FN;
+  obj->locals = locals;
+  prog->obj = obj;
   return prog;
 }
 
@@ -467,12 +471,9 @@ static Node *number(void) {
 
 void parse(const char *src) {
   new_lexer(src);
-  Func *main = program();
-  for (Node *n = main->body; n; n = n->next) {
+  Node *prog = program();
+  for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);
-  }
-  for (Obj *o = main->locals; o; o = o->next) {
-    printf("[%s]\t", o->name);
   }
   printf("\n");
 }

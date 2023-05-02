@@ -172,13 +172,13 @@ static int align_to(int n, int align) {
   return (n + align - 1) / align * align;
 }
 
-static void set_local_offsets(Func *prog) {
+static void set_local_offsets(Obj *scope) {
   int offset = 0;
-  for (Obj *obj= prog->locals; obj; obj = obj->next) {
+  for (Obj *obj= scope->locals; obj; obj = obj->next) {
     offset += 8;
     obj->offset = offset;
   }
-  prog->stack_size = align_to(offset, 16);
+  scope->stack_size = align_to(offset, 16);
 }
 
 // 编译表达式源码
@@ -193,13 +193,13 @@ void compile(const char *src) {
 
 
   new_lexer(src);
-  Func *prog = program();
-  set_local_offsets(prog);
+  Node *prog = program();
+  set_local_offsets(prog->obj);
 
   // Prologue
   fprintf(fp, "  push rbp\n");
   fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, %d\n", prog->stack_size);
+  fprintf(fp, "  sub rsp, %zu\n", prog->obj->stack_size);
 
   for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n, fp);
