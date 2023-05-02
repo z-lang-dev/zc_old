@@ -69,15 +69,15 @@ void error_tok(Token *tok, char *fmt, ...);
 // =============================
 
 typedef enum {
-  OBJ_LET, // 标量
-  OBJ_FN, // 函数
-} ObjType;
+  META_LET, // 标量
+  META_FN, // 函数
+} MetaType;
 
 // 值量：记录各种值量的编译期信息，未来会包括类型信息等
-typedef struct Obj Obj;
-struct Obj {
-  Obj *next; // 下一个值量
-  ObjType type; // 值量类型
+typedef struct Meta Meta;
+struct Meta {
+  Meta *next; // 下一个值量
+  MetaType type; // 值量类型
   char *name; // 名称
 
   // 标量
@@ -85,8 +85,8 @@ struct Obj {
 
   // 函数
   Node *body; // 函数的主体
-  Obj *params; // 函数的参数
-  Obj *locals; // 所有的局部值量
+  Meta *params; // 函数的参数
+  Meta *locals; // 所有的局部值量
   size_t stack_size; // 栈的尺寸
 };
 
@@ -138,7 +138,7 @@ struct Node {
   Node *els; // else
 
   // 如果是名符类型，这里放的是对应的值量，包括标量、函数等
-  Obj *obj; // 值量
+  Meta *meta; // 值量
 
   // 函数调用
   Node *args;

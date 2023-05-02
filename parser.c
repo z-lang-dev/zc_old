@@ -7,7 +7,7 @@
 
 Token cur_tok;
 Token prev_tok;
-Obj *locals;
+Meta *locals;
 
 static const char* const NODE_TYPE_NAMES[] = {
   [ND_NUM] = "NUM",
@@ -144,14 +144,14 @@ void print_node(Node *node, int level) {
   case ND_FN: {
     print_level(level+1);
     printf("%s()\n", node->name);
-    print_node(node->obj->body, level+1);
+    print_node(node->meta->body, level+1);
     print_level(level);
     break;
   }
   case ND_CALL: {
     printf("\n");
     print_level(level+1);
-    printf("%s(\n", node->obj->name);
+    printf("%s(\n", node->meta->name);
     for (Node *n = node->args; n; n = n->next) {
       print_node(n, level+2);
       if (n->next) {
@@ -179,10 +179,10 @@ void print_node(Node *node, int level) {
 
 // 查看名符是否已经在locals中记录了。包括所有的量名符和函数名符。
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
-static Obj *find_local(Token *tok) {
-  for (Obj *obj = locals; obj; obj = obj->next) {
-    if (tok->len == strlen(obj->name) && !strncmp(tok->pos, obj->name, tok->len)) {
-      return obj;
+static Meta *find_local(Token *tok) {
+  for (Meta *m= locals; m; m=m->next) {
+    if (tok->len == strlen(m->name) && !strncmp(tok->pos, m->name, tok->len)) {
+      return m;
     }
   }
   return NULL;
@@ -213,31 +213,31 @@ static Node *new_unary(NodeType type, Node *rhs) {
   return node;
 }
 
-static Node *new_ident_node(Obj *obj) {
+static Node *new_ident_node(Meta *meta) {
   Node *node = new_node(ND_IDENT);
-  node->name = obj->name;
-  node->obj = obj;
+  node->name = meta->name;
+  node->meta = meta;
   return node;
 }
 
-static Node *new_fn_node(Obj *obj) {
+static Node *new_fn_node(Meta *meta) {
   Node *node = new_node(ND_FN);
-  node->name = obj->name;
-  node->obj = obj;
-  // 注意：这里没有设置node->body = obj->body，
+  node->name = meta->name;
+  node->meta = meta;
+  // 注意：这里没有设置node->body = meta->body，
   // 是因为函数定义中的body是不需要马上执行的，而是在调用时才执行；且函数的代码在汇编中也是独立的，
   // 所以codegen并不需要在遍历语法树时通过node->body来执行函数体，
-  // 而是要用obj来单独处理函数的代码生成
+  // 而是要用meta来单独处理函数的代码生成
   return node;
 }
 
 // 存储局部值量
-static Obj *new_local(char *name) {
-  Obj *obj = calloc(1, sizeof(Obj));
-  obj->name = name;
-  obj->next = locals;
-  locals = obj;
-  return obj;
+static Meta *new_local(char *name) {
+  Meta *meta= calloc(1, sizeof(Meta));
+  meta->name = name;
+  meta->next = locals;
+  locals = meta;
+  return meta;
 }
 
 static bool peek(TokenType type) {
@@ -303,11 +303,11 @@ Node *program(void) {
 
   Node *prog = new_node(ND_BLOCK);
   prog->body = head.next;
-  // prog对应的obj，本质是一个scope
-  Obj *obj= calloc(1, sizeof(Obj));
-  obj->type = OBJ_FN;
-  obj->locals = locals;
-  prog->obj = obj;
+  // prog对应的meta，本质是一个scope
+  Meta *meta= calloc(1, sizeof(Meta));
+  meta->type = META_FN;
+  meta->locals = locals;
+  prog->meta= meta;
   return prog;
 }
 
@@ -374,14 +374,14 @@ static Node *fn(void) {
   }
 
   // 把函数定义添加到局部名量中
-  Obj *fn_obj = new_local(token_name(&cur_tok));
-  fn_obj->type = OBJ_FN;
+  Meta *fmeta = new_local(token_name(&cur_tok));
+  fmeta->type = META_FN;
 
   advance();
 
   // 保存当前的局部值量，因为函数定义中的局部值量是独立的
   // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
-  Obj *parent_locals = locals;
+  Meta *parent_locals= locals;
   locals = NULL;
 
   // 解析函数参数
@@ -391,16 +391,16 @@ static Node *fn(void) {
         expect(TK_COMMA, "','");
       }
       locals = new_local(token_name(&cur_tok));
-      locals->type = OBJ_LET;
+      locals->type = META_LET;
       advance();
     }
-    fn_obj->params = locals;
+    fmeta->params = locals;
   }
 
   Node *body = block();
-  fn_obj->body = body;
-  fn_obj->locals = locals;
-  Node *node = new_fn_node(fn_obj);
+  fmeta->body = body;
+  fmeta->locals = locals;
+  Node *node = new_fn_node(fmeta);
 
   // 恢复之前的局部值量
   locals = parent_locals;
@@ -413,9 +413,9 @@ static Node *decl(void) {
     error_tok(&cur_tok, "expected an identifier\n");
     exit(1);
   }
-  Obj *obj = new_local(token_name(&cur_tok));
+  Meta *meta = new_local(token_name(&cur_tok));
   advance();
-  Node *node = new_ident_node(obj);
+  Node *node = new_ident_node(meta);
   if (match(TK_ASN)) {
     node = new_binary(ND_ASN, node, expr());
   }
@@ -546,7 +546,7 @@ static Node *primary(void) {
 }
 
 // call = ident "(" (expr ("," expr)*)? ")"
-static Node *call(Obj *obj) {
+static Node *call(Meta *meta) {
   Node arg_head = {0};
   Node *cur_arg = &arg_head;
 
@@ -562,15 +562,15 @@ static Node *call(Obj *obj) {
   expect(TK_RPAREN, ")");
 
   Node *node = new_node(ND_CALL);
-  node->obj = obj;
+  node->meta = meta;
   node->args = arg_head.next;
   return node;
 }
 
 static Node *ident_or_call(void) {
-  Obj *obj = find_local(&cur_tok);
+  Meta *meta = find_local(&cur_tok);
 
-  if (obj == NULL) {
+  if (meta== NULL) {
     error_tok(&cur_tok, "undefined identifier: %.*s\n", cur_tok.len, cur_tok.pos);
     exit(1);
   }
@@ -578,10 +578,10 @@ static Node *ident_or_call(void) {
   advance();
 
   if (peek(TK_LPAREN)) {
-    return call(obj);
+    return call(meta);
   }
 
-  return new_ident_node(obj);
+  return new_ident_node(meta);
 }
 
 // number = [0-9]+

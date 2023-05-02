@@ -56,7 +56,7 @@ static void pop(char *reg, FILE *fp) {
 
 static void gen_addr(Node *node, FILE *fp) {
   if (node->type == ND_IDENT) {
-    int offset = node->obj->offset;
+    int offset = node->meta->offset;
     fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
   } else {
@@ -108,9 +108,9 @@ static void gen_expr(Node *node, FILE *fp) {
         pop(arg_regs[i], fp);
       }
 
-      fprintf(fp, "\t\t# ----- Calling %s()\n", node->obj->name);
+      fprintf(fp, "\t\t# ----- Calling %s()\n", node->meta->name);
       fprintf(fp, "  mov rax, 0\n");
-      fprintf(fp, "  call %s\n", node->obj->name);
+      fprintf(fp, "  call %s\n", node->meta->name);
       return;
     }
     case ND_BLOCK: {
@@ -195,43 +195,43 @@ static int align_to(int n, int align) {
   return (n + align - 1) / align * align;
 }
 
-static void set_local_offsets(Obj *scope) {
+static void set_local_offsets(Meta *scope) {
   int offset = 0;
-  for (Obj *obj= scope->locals; obj; obj = obj->next) {
+  for (Meta *meta= scope->locals; meta; meta=meta->next) {
     offset += 8;
-    obj->offset = offset;
+    meta->offset = offset;
   }
   scope->stack_size = align_to(offset, 16);
 }
 
-static void gen_fn(Obj *fobj, FILE *fp) {
-  fprintf(fp, "\t\t# ===== [Define Function: %s]\n", fobj->name);
-  set_local_offsets(fobj);
-  fprintf(fp, "\n  .global %s\n", fobj->name);
-  fprintf(fp, "%s:\n", fobj->name);
+static void gen_fn(Meta *meta, FILE *fp) {
+  fprintf(fp, "\t\t# ===== [Define Function: %s]\n", meta->name);
+  set_local_offsets(meta);
+  fprintf(fp, "\n  .global %s\n", meta->name);
+  fprintf(fp, "%s:\n", meta->name);
 
   // Prologue
   fprintf(fp, "\t\t# ----- Prologue\n");
   fprintf(fp, "  push rbp\n");
   fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, %zu\n", fobj->stack_size);
+  fprintf(fp, "  sub rsp, %zu\n", meta->stack_size);
 
   // 处理参数
   fprintf(fp, "\t\t# ----- Handle params\n");
   int i = 0;
-  for (Obj *p = fobj->params; p; p = p->next) {
+  for (Meta *p = meta->params; p; p = p->next) {
     fprintf(fp, "  mov [rbp-%d], %s\n", p->offset, arg_regs[i++]);
   }
 
   fprintf(fp, "\t\t# ----- Function body\n");
   // 生成函数体
-  for (Node *n = fobj->body; n; n = n->next) {
+  for (Node *n = meta->body; n; n = n->next) {
     gen_expr(n, fp);
   }
 
   // Epilogue
   fprintf(fp, "\t\t# ------ Epilogue\n");
-  fprintf(fp, ".L.return.%s:\n", fobj->name);
+  fprintf(fp, ".L.return.%s:\n", meta->name);
   fprintf(fp, "  mov rsp, rbp\n");
   fprintf(fp, "  pop rbp\n");
   fprintf(fp, "  ret\n");
@@ -250,12 +250,12 @@ void compile(const char *src) {
 
   new_lexer(src);
   Node *prog = program();
-  set_local_offsets(prog->obj);
+  set_local_offsets(prog->meta);
 
   // Prologue
   fprintf(fp, "  push rbp\n");
   fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, %zu\n", prog->obj->stack_size);
+  fprintf(fp, "  sub rsp, %zu\n", prog->meta->stack_size);
 
   for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n, fp);
@@ -267,9 +267,9 @@ void compile(const char *src) {
   fprintf(fp, "  ret\n");
 
   // 生成自定义函数的代码
-  for (Obj *obj = prog->obj->locals; obj; obj = obj->next) {
-    if (obj->type == OBJ_FN) {
-      gen_fn(obj, fp);
+  for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
+    if (meta->type == META_FN) {
+      gen_fn(meta, fp);
     }
   }
 

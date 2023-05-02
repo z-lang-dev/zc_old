@@ -7,12 +7,12 @@
 // 现在值量的类型只有长整数，因此用一个数组来存储。最多支持2048个值量。这个数组的下标就是parser.c的locals中的offset字段。
 long values[2048] = {0};
 
-static void set_val(Obj *obj, long val) {
-  values[obj->offset] = val;
+static void set_val(Meta *meta, long val) {
+  values[meta->offset] = val;
 }
 
-static long get_val(Obj *obj) {
-  return values[obj->offset];
+static long get_val(Meta *meta) {
+  return values[meta->offset];
 }
 
 static void help(void) {
@@ -37,10 +37,10 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-static void set_local_offsets(Obj *locals) {
+static void set_local_offsets(Meta *locals) {
   int offset = 0;
-  for (Obj *obj= locals; obj; obj = obj->next) {
-    obj->offset = offset++;
+  for (Meta *m = locals; m; m=m->next) {
+    m->offset = offset++;
   }
 }
 
@@ -62,12 +62,12 @@ long gen_expr(Node *node) {
       return ret;
     }
     case ND_FN: {
-      set_local_offsets(node->obj->locals);
+      set_local_offsets(node->meta->locals);
       return 0;
     }
     case ND_CALL: {
-      Obj *fobj = node->obj;
-      Obj *param = fobj->params;
+      Meta *fmeta = node->meta;
+      Meta *param = fmeta->params;
       if (param) {
         for (Node *n=node->args; n; n=n->next) {
           long arg = gen_expr(n);
@@ -77,7 +77,7 @@ long gen_expr(Node *node) {
           }
         }
       }
-      ret = gen_expr(fobj->body);
+      ret = gen_expr(fmeta->body);
       return ret;
     }
     case ND_BLOCK: {
@@ -114,11 +114,11 @@ long gen_expr(Node *node) {
         val = gen_expr(node->rhs);
       }
       Node *ident = node->lhs;
-      set_val(ident->obj, val);
+      set_val(ident->meta, val);
       return val;
     }
     case ND_IDENT:
-      return get_val(node->obj);
+      return get_val(node->meta);
     default:
       error_tok(node->token, "【错误】：不支持的节点：");
       print_node(node, 0);
@@ -133,7 +133,7 @@ int interpret(const char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
   Node *prog= program();
-  set_local_offsets(prog->obj->locals);
+  set_local_offsets(prog->meta->locals);
   long r = 0;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);
