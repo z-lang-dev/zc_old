@@ -33,6 +33,7 @@ test() {
 }
 
 # 函数
+test 12 "fn b{let a=8;a+4};b()"
 test 5 "fn a{2+3};a()"
 
 # 负数

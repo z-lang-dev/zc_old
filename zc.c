@@ -190,6 +190,7 @@ static void set_local_offsets(Obj *scope) {
 }
 
 static void gen_fn(Obj *fobj, FILE *fp) {
+  set_local_offsets(fobj);
   fprintf(fp, "  .global %s\n", fobj->name);
   fprintf(fp, "%s:\n", fobj->name);
 
