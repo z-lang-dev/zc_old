@@ -33,6 +33,7 @@ typedef enum {
   TK_LCURLY, // {
   TK_RCURLY, // }
   TK_LET, // let
+  TK_FN, // fn
   TK_IF, // if
   TK_ELSE, // else
   TK_FOR, // for
@@ -106,6 +107,8 @@ typedef enum {
   ND_BLOCK, // 代码块
   ND_IF, // if
   ND_FOR, // for
+  ND_FN, // 函数
+  ND_CALL, // 函数调用
   ND_UNKNOWN, // 未知 
 } NodeType;
 

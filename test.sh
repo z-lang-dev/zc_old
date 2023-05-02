@@ -32,6 +32,9 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 函数
+test 5 "fn a{2+3};a()"
+
 # 负数
 test 3 "-1+4"
 

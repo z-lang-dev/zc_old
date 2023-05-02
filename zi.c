@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
 }
 
 long gen_expr(Node *node) {
+  long ret = 0;
   switch (node->type) {
     case ND_IF: {
       long cond = gen_expr(node->cond);
@@ -48,14 +49,21 @@ long gen_expr(Node *node) {
       }
     }
     case ND_FOR: {
-      long ret = 0;
       while (gen_expr(node->cond)) {
         ret = gen_expr(node->body);
       }
       return ret;
     }
+    case ND_FN: {
+      // TODO: 函数定义暂时不返回东西
+      return 0;
+    }
+    case ND_CALL: {
+      Obj *obj = node->obj;
+      ret = gen_expr(obj->body);
+      return ret;
+    }
     case ND_BLOCK: {
-      long ret = 0;
       for (Node *n=node->body; n; n=n->next) {
         ret = gen_expr(n);
       }

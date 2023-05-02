@@ -90,6 +90,14 @@ static void gen_expr(Node *node, FILE *fp) {
       fprintf(fp, ".L.end.%d:\n", c);
       return;
     }
+    case ND_FN:
+      // 这里什么都不做，而是要等当前所在的scope结束之后，再单独生成函数定义相对应的代码
+      return;
+    case ND_CALL: {
+      fprintf(fp, "  mov rax, 0\n");
+      fprintf(fp, "  call %s\n", node->obj->name);
+      return;
+    }
     case ND_BLOCK: {
       for (Node *n=node->body; n; n=n->next) {
         gen_expr(n, fp);
@@ -181,6 +189,26 @@ static void set_local_offsets(Obj *scope) {
   scope->stack_size = align_to(offset, 16);
 }
 
+static void gen_fn(Obj *fobj, FILE *fp) {
+  fprintf(fp, "  .global %s\n", fobj->name);
+  fprintf(fp, "%s:\n", fobj->name);
+
+  // Prologue
+  fprintf(fp, "  push rbp\n");
+  fprintf(fp, "  mov rbp, rsp\n");
+  fprintf(fp, "  sub rsp, %zu\n", fobj->stack_size);
+
+  for (Node *n = fobj->body; n; n = n->next) {
+    gen_expr(n, fp);
+  }
+
+  // Epilogue
+  fprintf(fp, ".L.return.%s:\n", fobj->name);
+  fprintf(fp, "  mov rsp, rbp\n");
+  fprintf(fp, "  pop rbp\n");
+  fprintf(fp, "  ret\n");
+}
+
 // 编译表达式源码
 void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
@@ -209,6 +237,15 @@ void compile(const char *src) {
   fprintf(fp, "  mov rsp, rbp\n");
   fprintf(fp, "  pop rbp\n");
   fprintf(fp, "  ret\n");
+
+  // 生成自定义函数的代码
+  for (Obj *obj = prog->obj->locals; obj; obj = obj->next) {
+    printf("obj: %d %s\n", obj->type, obj->name);
+    if (obj->type == OBJ_FN) {
+      gen_fn(obj, fp);
+    }
+  }
+
   fclose(fp);
 
   // 调用clang将汇编编译成可执行文件

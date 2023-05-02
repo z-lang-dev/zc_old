@@ -27,6 +27,8 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_BLOCK] = "BLOCK",
   [ND_IF] = "IF",
   [ND_FOR] = "FOR",
+  [ND_FN] = "FN",
+  [ND_CALL] = "CALL",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -139,6 +141,18 @@ void print_node(Node *node, int level) {
     print_level(level);
     break;
   }
+  case ND_FN: {
+    print_level(level+1);
+    printf("%s()\n", node->name);
+    print_node(node->obj->body, level+1);
+    print_level(level);
+    break;
+  }
+  case ND_CALL: {
+    printf("%s()\n", node->name);
+    print_level(level);
+    break;
+  }
   case ND_BLOCK: {
     printf("\n");
     for (Node *n = node->body; n; n = n->next) {
@@ -153,9 +167,9 @@ void print_node(Node *node, int level) {
   printf(")\n");
 }
 
-// 查看名符是否已经在locals中记录了。
+// 查看名符是否已经在locals中记录了。包括所有的量名符和函数名符。
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
-static Obj *find_ident(Token *tok) {
+static Obj *find_local(Token *tok) {
   for (Obj *obj = locals; obj; obj = obj->next) {
     if (tok->len == strlen(obj->name) && !strncmp(tok->pos, obj->name, tok->len)) {
       return obj;
@@ -196,6 +210,17 @@ static Node *new_ident_node(Obj *obj) {
   return node;
 }
 
+static Node *new_fn_node(Obj *obj) {
+  Node *node = new_node(ND_FN);
+  node->name = obj->name;
+  node->obj = obj;
+  // 注意：这里没有设置node->body = obj->body，
+  // 是因为函数定义中的body是不需要马上执行的，而是在调用时才执行；且函数的代码在汇编中也是独立的，
+  // 所以codegen并不需要在遍历语法树时通过node->body来执行函数体，
+  // 而是要用obj来单独处理函数的代码生成
+  return node;
+}
+
 // 存储局部值量
 static Obj *new_local(char *name) {
   Obj *obj = calloc(1, sizeof(Obj));
@@ -217,6 +242,15 @@ static bool match(TokenType type) {
   return false;
 }
 
+static bool expect(TokenType type, const char* expected) {
+  if (peek(type)) {
+    advance();
+    return true;
+  }
+  error_tok(&cur_tok, "expected '%s'\n", expected);
+  exit(1);
+}
+
 static void expect_expr_sep(void) {
   if (match(TK_NLINE) || match(TK_SEMI)) {
     return;
@@ -228,9 +262,13 @@ static void expect_expr_sep(void) {
   exit(1);
 }
 
+static char *token_name(Token *tok) {
+  return strndup(tok->pos, tok->len);
+}
 
 static Node *expr(void);
 static Node *decl(void);
+static Node *fn(void);
 static Node *asn(void);
 static Node *equality(void);
 static Node *relational(void);
@@ -239,7 +277,7 @@ static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
 static Node *block(void);
-static Node *ident(void);
+static Node *ident_or_call(void);
 static Node *number(void);
 
 // program = expr*
@@ -287,6 +325,7 @@ static Node *for_expr(void) {
 
 // expr = "if" "(" expr ")" block ("else" block)?
 //      | "for" expr block
+//      | fn
 //      | decl
 //      | asn
 static Node *expr(void) {
@@ -303,6 +342,11 @@ static Node *expr(void) {
     return for_expr();
   }
 
+  // fn
+  if (match(TK_FN)) {
+    return fn();
+  }
+
   // decl
   if (match(TK_LET)) {
     return decl();
@@ -312,13 +356,41 @@ static Node *expr(void) {
   return asn();
 }
 
+// fn = "fn" ident block
+static Node *fn(void) {
+  if (cur_tok.type != TK_IDENT) {
+    error_tok(&cur_tok, "expected function name\n");
+    exit(1);
+  }
+
+  // 把函数定义添加到局部名量中
+  Obj *fn_obj = new_local(token_name(&cur_tok));
+  fn_obj->type = OBJ_FN;
+
+  advance();
+
+  // 保存当前的局部值量，因为函数定义中的局部值量是独立的
+  // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
+  Obj *parent_locals = locals;
+  locals = NULL;
+
+  Node *body = block();
+  fn_obj->body = body;
+  fn_obj->locals = locals;
+  Node *node = new_fn_node(fn_obj);
+
+  // 恢复之前的局部值量
+  locals = parent_locals;
+  return node;
+}
+
 // decl = "let" ident ("=" expr)?
 static Node *decl(void) {
   if (cur_tok.type != TK_IDENT) {
     error_tok(&cur_tok, "expected an identifier\n");
     exit(1);
   }
-  Obj *obj = new_local(strndup(cur_tok.pos, cur_tok.len));
+  Obj *obj = new_local(token_name(&cur_tok));
   advance();
   Node *node = new_ident_node(obj);
   if (match(TK_ASN)) {
@@ -444,19 +516,34 @@ static Node *primary(void) {
   }
 
   if (peek(TK_IDENT)) {
-    return ident();
+    return ident_or_call();
   }
 
   return number();
 }
 
-static Node *ident(void) {
-  Obj *obj = find_ident(&cur_tok);
+static Node *call(Obj *obj) {
+  expect(TK_LPAREN, "(");
+  expect(TK_RPAREN, ")");
+  Node *node = new_node(ND_CALL);
+  node->obj = obj;
+  return node;
+}
+
+static Node *ident_or_call(void) {
+  Obj *obj = find_local(&cur_tok);
+
   if (obj == NULL) {
-    error_tok(&cur_tok, "undefined variable: %.*s\n", cur_tok.len, cur_tok.pos);
+    error_tok(&cur_tok, "undefined identifier: %.*s\n", cur_tok.len, cur_tok.pos);
     exit(1);
   }
+
   advance();
+
+  if (peek(TK_LPAREN)) {
+    return call(obj);
+  }
+
   return new_ident_node(obj);
 }
 
