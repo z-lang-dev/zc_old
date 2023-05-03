@@ -1,7 +1,9 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdlib.h>
 
+typedef struct Type Type;
 typedef struct Node Node;
 
 
@@ -42,12 +44,12 @@ typedef enum {
   TK_NLINE, // \n
   TK_EOF, // 文件结束
   TK_ERROR, // 错误
-} TokenType;
+} TokenKind;
 
 // 词符
 typedef struct Token Token;
 struct Token {
-  TokenType type; // 类型
+  TokenKind kind; // 类型
   const char *pos; // 词符在代码中的位置
   size_t len; // 词符长度
 };
@@ -71,13 +73,13 @@ void error_tok(Token *tok, char *fmt, ...);
 typedef enum {
   META_LET, // 标量
   META_FN, // 函数
-} MetaType;
+} MetaKind;
 
 // 值量：记录各种值量的编译期信息，未来会包括类型信息等
 typedef struct Meta Meta;
 struct Meta {
   Meta *next; // 下一个值量
-  MetaType type; // 值量类型
+  MetaKind kind; // 值量类型
   char *name; // 名称
 
   // 标量
@@ -90,7 +92,7 @@ struct Meta {
   size_t stack_size; // 栈的尺寸
 };
 
-// 节点类型
+// 语法树节点的种类
 typedef enum {
   ND_NUM, // 整数
   ND_PLUS, // +
@@ -112,11 +114,13 @@ typedef enum {
   ND_FN, // 函数
   ND_CALL, // 函数调用
   ND_UNKNOWN, // 未知 
-} NodeType;
+} NodeKind;
 
-// 节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
+// 语法树节点，为了避免过早优化，这里没有使用tagged-union设计，而是把所有种类节点的信息都放在一起了。
 struct Node {
-  NodeType type; // 类型
+  NodeKind kind; // 节点种类
+  Type *type; // 值类型
+
   Token *token; // 对应的词符
 
   // 名符（包括标量、函数、函数调用等）
@@ -152,6 +156,25 @@ void print_node(Node *node, int level);
 
 // 解析一段代码
 Node *program(void);
+
+
+// =============================
+// 类型信息：type.c
+// =============================
+
+typedef enum {
+  TY_INT, // 整数
+} TypeKind;
+
+struct Type {
+  TypeKind kind; // 类型的种类
+};
+
+extern Type *TYPE_INT;
+
+bool is_int(Type *type);
+void mark_type(Node *node);
+char *type_name(Type *type);
 
 // =============================
 // 各个命令

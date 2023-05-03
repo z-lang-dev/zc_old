@@ -9,7 +9,7 @@ Token cur_tok;
 Token prev_tok;
 Meta *locals;
 
-static const char* const NODE_TYPE_NAMES[] = {
+static const char* const NODE_KIND_NAMES[] = {
   [ND_NUM] = "NUM",
   [ND_PLUS] = "PLUS",
   [ND_MINUS] = "MINUS",
@@ -32,11 +32,11 @@ static const char* const NODE_TYPE_NAMES[] = {
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
-static const char* get_node_type_name(NodeType type) {
-  if (type > ND_UNKNOWN) {
-    type = ND_UNKNOWN;
+static const char* get_node_kind_name(NodeKind kind) {
+  if (kind > ND_UNKNOWN) {
+    kind = ND_UNKNOWN;
   }
-  return NODE_TYPE_NAMES[type];
+  return NODE_KIND_NAMES[kind];
 }
 
 static void print_level(int level) {
@@ -59,11 +59,11 @@ void print_node(Node *node, int level) {
     return;
   }
   print_level(level);
-  printf("(%s", get_node_type_name(node->type));
+  printf("(%s", get_node_kind_name(node->kind));
 
-  switch (node->type) {
+  switch (node->kind) {
   case ND_NUM:
-    printf(" %ld", node->val);
+    printf(" %ld:%s", node->val, type_name(node->type));
     break;
   case ND_IDENT:
     printf(" %s", node->name);
@@ -193,22 +193,22 @@ static void advance(void) {
   cur_tok = next_token();
 }
 
-static Node *new_node(NodeType type) {
+static Node *new_node(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
-  node->type = type;
+  node->kind = kind;
   node->token = &cur_tok;
   return node;
 }
 
-static Node *new_binary(NodeType type, Node *lhs, Node *rhs) {
-  Node *node = new_node(type);
+static Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+  Node *node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
-static Node *new_unary(NodeType type, Node *rhs) {
-  Node *node = new_node(type);
+static Node *new_unary(NodeKind kind, Node *rhs) {
+  Node *node = new_node(kind);
   node->rhs = rhs;
   return node;
 }
@@ -240,20 +240,20 @@ static Meta *new_local(char *name) {
   return meta;
 }
 
-static bool peek(TokenType type) {
-  return cur_tok.type == type;
+static bool peek(TokenKind kind) {
+  return cur_tok.kind == kind;
 }
 
-static bool match(TokenType type) {
-  if (peek(type)) {
+static bool match(TokenKind kind) {
+  if (peek(kind)) {
     advance();
     return true;
   }
   return false;
 }
 
-static bool expect(TokenType type, const char* expected) {
-  if (peek(type)) {
+static bool expect(TokenKind kind, const char* expected) {
+  if (peek(kind)) {
     advance();
     return true;
   }
@@ -299,13 +299,14 @@ Node *program(void) {
     cur = cur->next = expr();
     // 表达式后面要有分号、换行或EOF
     expect_expr_sep();
+    mark_type(cur);
   }
 
   Node *prog = new_node(ND_BLOCK);
   prog->body = head.next;
   // prog对应的meta，本质是一个scope
   Meta *meta= calloc(1, sizeof(Meta));
-  meta->type = META_FN;
+  meta->kind= META_FN;
   meta->locals = locals;
   prog->meta= meta;
   return prog;
@@ -368,14 +369,14 @@ static Node *expr(void) {
 
 // fn = "fn" ident block
 static Node *fn(void) {
-  if (cur_tok.type != TK_IDENT) {
+  if (cur_tok.kind != TK_IDENT) {
     error_tok(&cur_tok, "expected function name\n");
     exit(1);
   }
 
   // 把函数定义添加到局部名量中
   Meta *fmeta = new_local(token_name(&cur_tok));
-  fmeta->type = META_FN;
+  fmeta->kind = META_FN;
 
   advance();
 
@@ -391,7 +392,7 @@ static Node *fn(void) {
         expect(TK_COMMA, "','");
       }
       locals = new_local(token_name(&cur_tok));
-      locals->type = META_LET;
+      locals->kind = META_LET;
       advance();
     }
     fmeta->params = locals;
@@ -409,7 +410,7 @@ static Node *fn(void) {
 
 // decl = "let" ident ("=" expr)?
 static Node *decl(void) {
-  if (cur_tok.type != TK_IDENT) {
+  if (cur_tok.kind != TK_IDENT) {
     error_tok(&cur_tok, "expected an identifier\n");
     exit(1);
   }

@@ -55,18 +55,18 @@ static void pop(char *reg, FILE *fp) {
 }
 
 static void gen_addr(Node *node, FILE *fp) {
-  if (node->type == ND_IDENT) {
+  if (node->kind== ND_IDENT) {
     int offset = node->meta->offset;
     fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
   } else {
-    error_tok(node->token, "【错误】：不支持的类型：%d\n", node->type);
+    error_tok(node->token, "【错误】：不支持的类型：%d\n", node->kind);
     exit(1);
   }
 }
 
 static void gen_expr(Node *node, FILE *fp) {
-  switch (node->type) {
+  switch (node->kind) {
     case ND_IF: {
       int c = count();
       gen_expr(node->cond, fp);
@@ -153,7 +153,7 @@ static void gen_expr(Node *node, FILE *fp) {
   // TODO: 上面的计算如果左右顺序反过来，就可以节省一次push和pop，未来可以考虑优化
 
   // 执行计算
-  switch (node->type) {
+  switch (node->kind) {
     case ND_PLUS:
       fprintf(fp, "  add rax, rdi\n");
       return;
@@ -172,20 +172,20 @@ static void gen_expr(Node *node, FILE *fp) {
     case ND_LT:
     case ND_LE: {
       fprintf(fp, "  cmp rax, rdi\n");
-      if (node->type == ND_EQ) {
+      if (node->kind== ND_EQ) {
         fprintf(fp, "  sete al\n");
-      } else if (node->type == ND_NE) {
+      } else if (node->kind== ND_NE) {
         fprintf(fp, "  setne al\n");
-      } else if (node->type == ND_LT) {
+      } else if (node->kind== ND_LT) {
         fprintf(fp, "  setl al\n");
-      } else if (node->type == ND_LE) {
+      } else if (node->kind== ND_LE) {
         fprintf(fp, "  setle al\n");
       }
       fprintf(fp, "  movzx rax, al\n");
       return;
     }
     default:
-      error_tok(node->token, "【错误】：不支持的运算符：%c\n", node->type);
+      error_tok(node->token, "【错误】：不支持的运算符：%c\n", node->kind);
   }
 
 }
@@ -268,7 +268,7 @@ void compile(const char *src) {
 
   // 生成自定义函数的代码
   for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
-    if (meta->type == META_FN) {
+    if (meta->kind== META_FN) {
       gen_fn(meta, fp);
     }
   }

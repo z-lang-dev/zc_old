@@ -80,9 +80,9 @@ static bool is_eof(void) {
 }
 
 // 构造一个词符的辅助函数
-static Token make_token(TokenType type) {
+static Token make_token(TokenKind kind) {
   Token token;
-  token.type = type;
+  token.kind = kind;
   token.pos = lexer.start;
   token.len = lexer.current - lexer.start;
   return token;
@@ -139,12 +139,12 @@ static Token number(void) {
 static Token check_keyword(Token tok) {
   // TODO: C没有map，暂时用双数组替代
   static char *kw[] = {"if", "else", "for", "let", "fn"};
-  static TokenType kw_type[] = {TK_IF, TK_ELSE, TK_FOR, TK_LET, TK_FN};
+  static TokenKind kw_kind[] = {TK_IF, TK_ELSE, TK_FOR, TK_LET, TK_FN};
 
   for (size_t i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     char* op = kw[i];
     if (strncmp(tok.pos, op, tok.len) == 0 && op[tok.len] == '\0') {
-      tok.type = kw_type[i];
+      tok.kind = kw_kind[i];
     }
   }
   return tok;
@@ -158,7 +158,7 @@ static Token ident(void) {
   return check_keyword(t);
 }
 
-static Token make_two_op(char follow, TokenType op1, TokenType op2) {
+static Token make_two_op(char follow, TokenKind op1, TokenKind op2) {
   if (peek() == follow) {
     advance();
     return make_token(op2);
@@ -229,17 +229,17 @@ Token next_token(void) {
 
 }
 
-static void print_token_type(TokenType tt) {
-  if (tt > TK_ERROR) {
+static void print_token_kind(TokenKind kind) {
+  if (kind > TK_ERROR) {
     printf("UNKNOWN");
   } else {
-    printf("%-8s", TOKEN_NAMES[tt]);
+    printf("%-8s", TOKEN_NAMES[kind]);
   } 
 }
 
 void print_token(Token t) {
   printf("{");
-  print_token_type(t.type);
+  print_token_kind(t.kind);
   printf("| %.*s }\n", (int)(t.len), t.pos);
 }
 
@@ -247,7 +247,7 @@ void print_token(Token t) {
 void lex(const char *src) {
   printf("Lexing...\n");
   new_lexer(src);
-  for (Token t = next_token(); t.type != TK_EOF; t = next_token()) {
+  for (Token t = next_token(); t.kind != TK_EOF; t = next_token()) {
     print_token(t);
   }
 }

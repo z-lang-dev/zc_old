@@ -46,7 +46,7 @@ static void set_local_offsets(Meta *locals) {
 
 long gen_expr(Node *node) {
   long ret = 0;
-  switch (node->type) {
+  switch (node->kind) {
     case ND_IF: {
       long cond = gen_expr(node->cond);
       if (cond) {
