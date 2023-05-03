@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   if (strcmp(cmd, "h") == 0) { // help
     help();
   } else if (strcmp(cmd, "v") == 0) { //  version
-    printf("Z语言编解释器，版本号：%s。\n", ZC_VERSION);
+    printf("Z语言解释器，版本号：%s。\n", ZC_VERSION);
   } else {
     char *src = cmd;
     return interpret(src);
