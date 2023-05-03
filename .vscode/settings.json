@@ -19,6 +19,20 @@
         "algorithm": "c",
         "initializer_list": "c",
         "numeric": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "array": "c",
+        "atomic": "c",
+        "bit": "c",
+        "cmath": "c",
+        "concepts": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "memory": "c",
+        "memory_resource": "c",
+        "string_view": "c",
+        "utility": "c",
+        "iosfwd": "c",
+        "tuple": "c",
+        "typeinfo": "c"
     }
 }

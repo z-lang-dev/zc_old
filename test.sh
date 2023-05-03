@@ -32,6 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 指定类型
+test 5 "let a int=5;a"
+test 4 "let b char=3;b+1"
+
+
 # 带参数的函数
 test 10 "fn db(a){a*2};db(5)"
 test 12 "fn add(a, b){a+b};add(5, 7)"

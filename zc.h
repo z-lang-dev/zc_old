@@ -81,6 +81,7 @@ struct Meta {
   Meta *next; // 下一个值量
   MetaKind kind; // 值量类型
   char *name; // 名称
+  Type *type; // 对应的值类型
 
   // 标量
   int offset; // 相对RBP的偏移量
@@ -164,13 +165,16 @@ Node *program(void);
 
 typedef enum {
   TY_INT, // 整数
+  TY_CHAR, // 字符
 } TypeKind;
 
 struct Type {
   TypeKind kind; // 类型的种类
+  size_t size; // sizeof()的值，即所占的字节数
 };
 
 extern Type *TYPE_INT;
+extern Type *TYPE_CHAR;
 
 bool is_int(Type *type);
 void mark_type(Node *node);

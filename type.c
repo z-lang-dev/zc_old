@@ -2,7 +2,9 @@
 #include "zc.h"
 
 // 整数类型
-Type *TYPE_INT= &(Type){TY_INT};
+Type *TYPE_INT= &(Type){TY_INT, 4}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
+// 字符类型
+Type *TYPE_CHAR = &(Type){TY_CHAR, 1};
 
 bool is_int(Type *t) {
   return t->kind == TY_INT;
@@ -30,7 +32,12 @@ void mark_type(Node *node) {
   mark_type(node->then);
   mark_type(node->els);
 
+  // 递归标记函数体的类型
   for (Node *n=node->body; n; n=n->next) {
+    mark_type(n);
+  }
+  // 递归标记函数参数的类型
+  for (Node *n=node->args; n; n=n->next) {
     mark_type(n);
   }
 
@@ -52,7 +59,16 @@ void mark_type(Node *node) {
     case ND_LT:
     case ND_LE:
     case ND_NUM:
+      node->type = TYPE_INT;
+      return;
     case ND_IDENT:
+      if (node->meta) {
+        node->type = node->meta->type;
+      } else {
+        error_tok(node->token, "该节点缺失了meta信息");
+      }
+      return;
+    case ND_CALL:
       node->type = TYPE_INT;
       return;
     default:

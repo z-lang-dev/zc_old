@@ -408,7 +408,36 @@ static Node *fn(void) {
   return node;
 }
 
-// decl = "let" ident ("=" expr)?
+// TODO: 现在还没有实现自定义类型，因此只需要直接判断类型的名符是否符合预定义的这几种类型即可
+static Type *find_type(Token *tok) {
+  static char *names[] = {"int", "char"};
+  static Type *types[2];
+  types[0] = TYPE_INT;
+  types[1] = TYPE_CHAR;
+
+  for (size_t i = 0; i < sizeof(names) / sizeof(*names); i++) {
+    char* n = names[i];
+    if (strncmp(tok->pos, n, tok->len) == 0 && n[tok->len] == '\0') {
+      return types[i];
+    }
+  }
+ 
+  return NULL;
+}
+
+static Type *type(void) {
+  // 类型名称必然是一个TK_IDENT
+  if (!peek(TK_IDENT)) {
+    error_tok(&cur_tok, "expected a type name\n");
+    exit(1);
+  }
+  // 暂时只支持int和char类型
+  Type *typ = find_type(&cur_tok);
+  advance();
+  return typ;
+}
+
+// decl = "let" ident (type)? ("=" expr)?
 static Node *decl(void) {
   if (cur_tok.kind != TK_IDENT) {
     error_tok(&cur_tok, "expected an identifier\n");
@@ -417,11 +446,19 @@ static Node *decl(void) {
   Meta *meta = new_local(token_name(&cur_tok));
   advance();
   Node *node = new_ident_node(meta);
+
+  // 解析类型
+  if (!peek(TK_ASN)) {
+    meta->type = type();
+  }
+
+  // 解析赋值
   if (match(TK_ASN)) {
     node = new_binary(ND_ASN, node, expr());
   }
   return node;
 }
+
 
 // block = "{" expr* "}"
 static Node *block(void) {
