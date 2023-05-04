@@ -175,7 +175,7 @@ static void gen_expr(Node *node, FILE *fp) {
       // ptr + num
       if (node->lhs->type->kind == TY_PTR) {
         // 如果加法左侧是指针类型，那么所加的值应当乘以8，即ptr+1相当于地址移动8个字节
-        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE);
+        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
       }
 
       fprintf(fp, "  add rax, rdi\n");
@@ -185,13 +185,13 @@ static void gen_expr(Node *node, FILE *fp) {
       // ptr - num
       if (is_ptr(node->lhs->type) && is_num(node->rhs->type)) {
         // 如果减法左侧是指针类型，那么所减的值应当乘以8，即ptr-1相当于地址移动-8个字节
-        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE);
+        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
       }
       fprintf(fp, "  sub rax, rdi\n");
       // ptr - ptr
       if (is_ptr(node->lhs->type) && is_ptr(node->rhs->type)) {
         fprintf(fp, "  cqo\n");
-        fprintf(fp, "  mov rdi, %d\n", OFFSET_SIZE);
+        fprintf(fp, "  mov rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
         fprintf(fp, "  idiv rdi\n");
         return;
       }
@@ -235,8 +235,10 @@ static int align_to(int n, int align) {
 static void set_local_offsets(Meta *scope) {
   int offset = 0;
   for (Meta *meta= scope->locals; meta; meta=meta->next) {
-    offset += OFFSET_SIZE;
-    meta->offset = offset;
+    if (meta->kind == META_LET) {
+      offset += meta->type->size;
+      meta->offset = offset;
+    }
   }
   scope->stack_size = align_to(offset, 16);
 }
@@ -273,6 +275,7 @@ static void gen_fn(Meta *meta, FILE *fp) {
   fprintf(fp, "  pop rbp\n");
   fprintf(fp, "  ret\n");
 }
+
 
 // 编译表达式源码
 void compile(const char *src) {

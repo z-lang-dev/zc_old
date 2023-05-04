@@ -3,9 +3,9 @@
 #include "zc.h"
 
 // 整数类型
-Type *TYPE_INT= &(Type){TY_INT, INT_SIZE, NULL}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
+Type *TYPE_INT= &(Type){.kind = TY_INT,.size = INT_SIZE}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
 // 字符类型
-Type *TYPE_CHAR = &(Type){TY_CHAR, CHAR_SIZE, NULL};
+Type *TYPE_CHAR = &(Type){.kind = TY_CHAR, .size = CHAR_SIZE};
 
 bool is_ptr(Type *t) {
   if (!t) {
@@ -27,6 +27,29 @@ Type *pointer_to(Type *target) {
   type->size = PTR_SIZE; 
   type->target = target;
   return type;
+}
+
+Type *array_of(Type *elem, size_t len) {
+  Type *type = calloc(1, sizeof(Type));
+  type->kind = TY_ARRAY;
+  type->size = elem->size * len;
+  type->target = elem;
+  type->len = len;
+  return type;
+}
+
+Type *fn_type(Type* ret_type) {
+  Type *ty = calloc(1, sizeof(Type));
+  ty->kind = TY_FN;
+  ty->ret_type = ret_type;
+  return ty;
+}
+
+
+Type *copy_type(Type *ty) {
+  Type *ret = calloc(1, sizeof(Type));
+  *ret = *ty;
+  return ret;
 }
 
 char *format(char *fmt, ...) {
@@ -68,9 +91,16 @@ void mark_type(Node *node) {
   mark_type(node->els);
 
   // 递归标记函数体的类型
-  for (Node *n=node->body; n; n=n->next) {
-    mark_type(n);
+  if (node->meta && node->meta->kind == META_FN) {
+    for (Node *n=node->meta->body; n; n=n->next) {
+      mark_type(n);
+    }
+  } else {
+    for (Node *n=node->body; n; n=n->next) {
+      mark_type(n);
+    }
   }
+
   // 递归标记函数参数的类型
   for (Node *n=node->args; n; n=n->next) {
     mark_type(n);
@@ -105,24 +135,33 @@ void mark_type(Node *node) {
     case ND_NUM:
       node->type = TYPE_INT;
       return;
-    case ND_IDENT:
+    case ND_IDENT: {
       if (!node->type && node->meta && node->meta->type) {
         node->type = node->meta->type;
       } 
       return;
+    }
     case ND_CALL:
       node->type = TYPE_INT;
       return;
-    case ND_ADDR:
-      node->type = pointer_to(node->rhs->type);
-      return;
-    case ND_DEREF:
-      if (node->rhs && node->rhs->type && node->rhs->type->kind == TY_PTR) {
-        node->type = node->rhs->type->target;
+    case ND_ADDR: {
+      // let arr int[] = {1,2,3}; let p = &arr; // p的类型是int*
+      if (node->rhs->type->kind == TY_ARRAY) {
+        node->type = pointer_to(node->rhs->type->target);
       } else {
-        node->type = TYPE_INT;
+        node->type = pointer_to(node->rhs->type);
       }
       return;
+    }
+    case ND_DEREF: {
+      // 如果右侧是指针类型，就把指针对应的target类型赋给左侧
+      if (node->rhs && node->rhs->type && node->rhs->type->target) {
+        node->type = node->rhs->type->target;
+      } else {
+        error_tok(node->token, "【错误】：寻值操作只能用于指针类型");
+      }
+      return;
+    }
     case ND_FN:
     case ND_BLOCK:
     case ND_IF:

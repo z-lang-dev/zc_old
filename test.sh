@@ -46,9 +46,9 @@ test 4 "let b char=3;b+1"
 
 
 # 带参数的函数
-test 10 "fn db(a){a*2};db(5)"
-test 12 "fn add(a, b){a+b};add(5, 7)"
-test 21 "fn sum(a,b,c,d,e,f){a+b+c+d+e+f};sum(1,2,3,4,5,6)"
+test 10 "fn db(a int){a*2};db(5)"
+test 12 "fn add(a int, b int){a+b};add(5, 7)"
+test 21 "fn sum(a int,b int,c int,d int,e int,f int){a+b+c+d+e+f};sum(1,2,3,4,5,6)"
 
 # 无参数的函数
 test 12 "fn b{let a=8;a+4};b()"

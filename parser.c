@@ -56,6 +56,17 @@ static void print_binary(Node *lhs, const char *op, Node *rhs, int level) {
   }
 }
 
+static void print_params(Meta *params) {
+  printf("(");
+  for (Meta *m = params; m; m = m->next) {
+    printf("%s %s", m->name, type_name(m->type));
+    if (m->next) {
+      printf(", ");
+    }
+  }
+  printf(")");
+}
+
 void print_node(Node *node, int level) {
   if (node == NULL) {
     return;
@@ -144,8 +155,11 @@ void print_node(Node *node, int level) {
     break;
   }
   case ND_FN: {
-    print_level(level+1);
-    printf("%s()\n", node->name);
+    print_level(level);
+    printf(" %s ", node->name);
+    print_params(node->meta->params);
+    printf("\n");
+    print_level(level);
     print_node(node->meta->body, level+1);
     print_level(level);
     break;
@@ -317,6 +331,7 @@ Node *program(void) {
   // prog对应的meta，本质是一个scope
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
+  meta->type= fn_type(TYPE_INT);
   meta->locals = locals;
   prog->meta= meta;
   return prog;
@@ -377,47 +392,6 @@ static Node *expr(void) {
   return asn();
 }
 
-// fn = "fn" ident block
-static Node *fn(void) {
-  if (cur_tok.kind != TK_IDENT) {
-    error_tok(&cur_tok, "expected function name\n");
-    exit(1);
-  }
-
-  // 把函数定义添加到局部名量中
-  Meta *fmeta = new_local(token_name(&cur_tok));
-  fmeta->kind = META_FN;
-
-  advance();
-
-  // 保存当前的局部值量，因为函数定义中的局部值量是独立的
-  // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
-  Meta *parent_locals= locals;
-  locals = NULL;
-
-  // 解析函数参数
-  if (match(TK_LPAREN)) {
-    while (!match(TK_RPAREN)) {
-      if (locals) {
-        expect(TK_COMMA, "','");
-      }
-      locals = new_local(token_name(&cur_tok));
-      locals->kind = META_LET;
-      advance();
-    }
-    fmeta->params = locals;
-  }
-
-  Node *body = block();
-  fmeta->body = body;
-  fmeta->locals = locals;
-  Node *node = new_fn_node(fmeta);
-
-  // 恢复之前的局部值量
-  locals = parent_locals;
-  return node;
-}
-
 // TODO: 现在还没有实现自定义类型，因此只需要直接判断类型的名符是否符合预定义的这几种类型即可
 static Type *find_type(Token *tok) {
   static char *names[] = {"int", "char"};
@@ -445,6 +419,56 @@ static Type *type(void) {
   Type *typ = find_type(&cur_tok);
   advance();
   return typ;
+}
+
+// fn = "fn" ident ("(" param ("," param)* ")")? block
+static Node *fn(void) {
+  if (cur_tok.kind != TK_IDENT) {
+    error_tok(&cur_tok, "expected function name\n");
+    exit(1);
+  }
+
+  // 把函数定义添加到局部名量中
+  Meta *fmeta = new_local(token_name(&cur_tok));
+  fmeta->kind = META_FN;
+
+  advance();
+
+  // 保存当前的局部值量，因为函数定义中的局部值量是独立的
+  // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
+  Meta *parent_locals= locals;
+  locals = NULL;
+
+  Type param_head = {0};
+  // 解析函数参数
+  if (match(TK_LPAREN)) {
+    Type *cur_param = &param_head;
+    while (!match(TK_RPAREN)) {
+      if (locals) {
+        expect(TK_COMMA, "','");
+      }
+      // 参数名称
+      Meta *pmeta = new_local(token_name(&cur_tok));
+      advance();
+      pmeta->kind = META_LET;
+      // 参数类型。在参数里类型是必须的。
+      pmeta->type = type();
+      cur_param = cur_param->next = copy_type(pmeta->type);
+    }
+    fmeta->params = locals;
+  }
+
+  fmeta->type = fn_type(TYPE_INT);
+  fmeta->type->param_types = param_head.next;
+
+  Node *body = block();
+  fmeta->body = body;
+  fmeta->locals = locals;
+  Node *node = new_fn_node(fmeta);
+
+  // 恢复之前的局部值量
+  locals = parent_locals;
+  return node;
 }
 
 // decl = "let" ident (type)? ("=" expr)?
