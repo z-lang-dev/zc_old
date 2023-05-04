@@ -20,8 +20,8 @@ typedef enum {
   TK_NUM, // 数
   TK_PLUS, // +
   TK_MINUS, // -
-  TK_MUL, // *
-  TK_DIV, // /
+  TK_STAR, // *
+  TK_SLASH, // /
   TK_ASN, // =
   TK_NOT, // !
   TK_GT, // >
@@ -41,6 +41,7 @@ typedef enum {
   TK_FOR, // for
   TK_COMMA, // ,
   TK_SEMI, // ;
+  TK_AMP, // &
   TK_NLINE, // \n
   TK_EOF, // 文件结束
   TK_ERROR, // 错误
@@ -114,6 +115,8 @@ typedef enum {
   ND_FOR, // for
   ND_FN, // 函数
   ND_CALL, // 函数调用
+  ND_ADDR, // &, 取地址
+  ND_DEREF, // *, 指针取值
   ND_UNKNOWN, // 未知 
 } NodeKind;
 

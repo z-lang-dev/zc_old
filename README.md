@@ -1,7 +1,6 @@
 ## Z语言编译器
 
 zc是Z语言的编译器和解释器。 
-
 zc的初版用C语言开发，将来会改为用Z语言本身实现。
 zc支持暂时只支持Linux，将来会添加其他平台的支持。
 
@@ -9,13 +8,13 @@ zc支持暂时只支持Linux，将来会添加其他平台的支持。
 
 本工程还处于非常早期的筹备和尝试阶段。但由于本工程与配套书籍都遵循**增量开发**方法，每一步都是相对完整的。
 
-zc早期代码同时参考[ChibiCC](https://github.com/rui314/chibicc)
+zc早期代码参考了[ChibiCC](https://github.com/rui314/chibicc)
 和[clox](https://github.com/munificent/craftinginterpreters/tree/master/c)，
 分别用于实现类C的静态特性和类Lox的动态特性。
 
 ## Z语言特性
 
-我把Z语言设计为一门通用编程语言，它的主要独特之处在于：
+Z语言是一门通用编程语言，它的主要独特之处在于：
 
 - *动静皆宜*。Z语言同时支持静态编译（AOT）、动态解释（Interpreter），未来还会添加及时编译（JIT）功能。Z语言既支持静态类型检查，也支持动态类型数据。
 - *编译期脚本*。利用动静结合的特性，将解释器嵌入到编译流程之中，实现编译期脚本执行功能。这个特性可以用来实现泛型、宏和模板等高阶语言特性。
@@ -35,9 +34,8 @@ Z语言的**驱动应用**是类似[RT-Thread](https://www.rt-thread.org/)的嵌
 
 注意，作为“动静皆宜”的语言，Z语言既提供动态解释器（`zi`），也提供静态编译器（`zc`）。
 
-`zc`编译期的用法和`gcc`、`clang`、`tcc`类似，将源码文件编译为汇编或二进制文件。
-
-`zi`的用法和Python的解释器类似，既可以直接解释一段语句或一个脚本文件，也可以打开一个交互界面（即REPL）进行交互式开发。
+- `zc`编译器的用法和`gcc`、`clang`、`tcc`类似，将源码文件编译为汇编或二进制文件。
+- `zi`的用法和Python的解释器类似，既可以直接解释一段语句或一个脚本文件，也可以打开一个交互界面（即REPL）进行交互式开发。
 
 
 #### 最简单的示例
@@ -705,7 +703,7 @@ fn main {
 
 ```c
 use io.println
-mfn main {
+fn main {
   // range
   for i: 0..5 {
     println(i)
@@ -742,7 +740,7 @@ Go语言的控制流语句本身也都是表达式，其返回值为：
 ```c
 use io.println
 
-mfn main {
+fn main {
   let a = if 1>0 {true} else {false} // 相当于C的三元表达式
 
   // when语句取分支结果
@@ -803,7 +801,7 @@ Eagle.flap() {
   println("phew~~")
 }
 
-mfn main {
+fn main {
   let birds []Bird = [&Duck{}, &Chicken{}, &Eagle{}]
   birds[0].flap() // flap~~
   birds[1].flap() // cluck~~

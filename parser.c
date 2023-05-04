@@ -29,6 +29,8 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_FOR] = "FOR",
   [ND_FN] = "FN",
   [ND_CALL] = "CALL",
+  [ND_ADDR] = "ADDR",
+  [ND_DEREF] = "DEREF",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -540,9 +542,9 @@ static Node *add(void) {
 static Node *mul(void) {
   Node *node = unary();
   for (;;) {
-    if (match(TK_MUL)) {
+    if (match(TK_STAR)) {
       node = new_binary(ND_MUL, node, unary());
-    } else if (match(TK_DIV)) {
+    } else if (match(TK_SLASH)) {
       node = new_binary(ND_DIV, node, unary());
     } else {
       return node;
@@ -550,13 +552,19 @@ static Node *mul(void) {
   }
 }
 
-// unary = ("+" | "-")? primary
+// unary = ("+" | "-" | "&" | "*")? primary
 static Node *unary(void) {
   if (match(TK_PLUS)) {
     return primary();
   }
   if (match(TK_MINUS)) {
     return new_unary(ND_NEG, primary());
+  }
+  if (match(TK_AMP)) {
+    return new_unary(ND_ADDR, primary());
+  }
+  if (match(TK_STAR)) {
+    return new_unary(ND_DEREF, primary());
   }
   return primary();
 }

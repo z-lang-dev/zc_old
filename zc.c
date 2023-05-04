@@ -10,6 +10,8 @@ static void help(void) {
   printf("【用法】：./zc h|v|<源码>\n");
 }
 
+static void gen_expr(Node *node, FILE *fp);
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     help();
@@ -55,13 +57,18 @@ static void pop(char *reg, FILE *fp) {
 }
 
 static void gen_addr(Node *node, FILE *fp) {
-  if (node->kind== ND_IDENT) {
+  switch (node->kind) {
+  case ND_IDENT: {
     int offset = node->meta->offset;
     fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
     return;
-  } else {
+  }
+  case ND_DEREF: {
+    gen_expr(node->rhs, fp);
+    return;
+  }
+  default:
     error_tok(node->token, "【错误】：不支持的类型：%d\n", node->kind);
-    exit(1);
   }
 }
 
@@ -131,11 +138,21 @@ static void gen_expr(Node *node, FILE *fp) {
       fprintf(fp, "  mov rax, [rax]\n");
       return;
     case ND_ASN:
+      fprintf(fp, "\t\t# ----- Assignment.\n");
       gen_addr(node->lhs, fp);
       push(fp);
       gen_expr(node->rhs, fp);
       pop("rdi", fp);
       fprintf(fp, "  mov [rdi], rax\n");
+      return;
+    case ND_ADDR:
+      fprintf(fp, "\t\t# ----- Get addr for pointer.\n");
+      gen_addr(node->rhs, fp);
+      return;
+    case ND_DEREF:
+      fprintf(fp, "\t\t# ----- Deref a pointer.\n");
+      gen_expr(node->rhs, fp);
+      fprintf(fp, "  mov rax, [rax]\n");
       return;
     default:
       break;

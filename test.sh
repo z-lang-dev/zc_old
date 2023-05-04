@@ -32,6 +32,9 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 指针
+test 13 "let a=13;let b=&a;*b"
+
 # 指定类型
 test 5 "let a int=5;a"
 test 4 "let b char=3;b+1"

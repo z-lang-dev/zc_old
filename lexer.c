@@ -42,8 +42,8 @@ static const char* const TOKEN_NAMES[] = {
   [TK_NUM] = "TK_NUM",
   [TK_PLUS] = "TK_PLUS",
   [TK_MINUS] = "TK_MINUS",
-  [TK_MUL] = "TK_MUL",
-  [TK_DIV] = "TK_DIV",
+  [TK_STAR] = "TK_STAR",
+  [TK_SLASH] = "TK_SLASH",
   [TK_ASN] = "TK_ASN",
   [TK_GT] = "TK_GT",
   [TK_LT] = "TK_LT",
@@ -62,6 +62,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_FOR] = "TK_FOR",
   [TK_COMMA] = "TK_COMMA",
   [TK_SEMI] = "TK_SEMI",
+  [TK_AMP] = "TK_AMP",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
   [TK_ERROR] = "TK_ERROR",
@@ -197,9 +198,9 @@ Token next_token(void) {
     case '-':
       return make_token(TK_MINUS);
     case '*':
-      return make_token(TK_MUL);
+      return make_token(TK_STAR);
     case '/':
-      return make_token(TK_DIV);
+      return make_token(TK_SLASH);
     case '(':
       return make_token(TK_LPAREN);
     case ')':
@@ -214,6 +215,8 @@ Token next_token(void) {
       return make_token(TK_SEMI);
     case '\n':
       return make_token(TK_NLINE);
+    case '&':
+      return make_token(TK_AMP);
     case '=':
       return make_two_op('=', TK_ASN, TK_EQ);
     case '>':

@@ -4,8 +4,10 @@
 
 #include "zc.h"
 
+#define MAX_VALUES 2048
+
 // 现在值量的类型只有长整数，因此用一个数组来存储。最多支持2048个值量。这个数组的下标就是parser.c的locals中的offset字段。
-long values[2048] = {0};
+long values[MAX_VALUES] = {0};
 
 static void set_val(Meta *meta, long val) {
   values[meta->offset] = val;
@@ -13,6 +15,24 @@ static void set_val(Meta *meta, long val) {
 
 static long get_val(Meta *meta) {
   return values[meta->offset];
+}
+
+static long get_addr(Node *node) {
+  if (node->kind != ND_IDENT) {
+    error_tok(node->token, "不是值量，不能取地址");
+  }
+  return (long) node->meta->offset;
+}
+
+static long get_deref(Node *node) {
+  if (node->kind != ND_IDENT) {
+    error_tok(node->token, "不是指针值量，不能解析地址");
+  }
+  long addr = get_val(node->meta);
+  if (addr < 0 || addr >= MAX_VALUES) {
+    error_tok(node->token, "地址越界");
+  }
+  return values[addr];
 }
 
 static void help(void) {
@@ -119,6 +139,10 @@ long gen_expr(Node *node) {
     }
     case ND_IDENT:
       return get_val(node->meta);
+    case ND_ADDR:
+      return get_addr(node->rhs);
+    case ND_DEREF:
+      return get_deref(node->rhs);
     default:
       error_tok(node->token, "【错误】：不支持的节点：");
       print_node(node, 0);
