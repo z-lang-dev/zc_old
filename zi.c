@@ -58,9 +58,13 @@ int main(int argc, char *argv[]) {
 }
 
 static void set_local_offsets(Meta *locals) {
-  int offset = 0;
+  int offset = 1;
+  int num_locals = 0;
   for (Meta *m = locals; m; m=m->next) {
-    m->offset = offset++;
+    num_locals++;
+  }
+  for (Meta *m = locals; m; m=m->next) {
+    m->offset = num_locals - offset++;
   }
 }
 

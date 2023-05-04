@@ -3,6 +3,15 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+// 指针类型的大小是8个字节。TODO：这个值可能需要根据目标平台来调整，不过现在zc输出的汇编本来就是x86_64的，因此这里写定成8也可以。
+#define PTR_SIZE 8
+// int类型的大小固定位4个字节，即相当于i32
+#define INT_SIZE 4
+// char类型的大小固定位1个字节
+#define CHAR_SIZE 1
+// 默认的栈上分配的单位空间大小
+#define OFFSET_SIZE 8
+
 typedef struct Type Type;
 typedef struct Node Node;
 
@@ -169,17 +178,22 @@ Node *program(void);
 typedef enum {
   TY_INT, // 整数
   TY_CHAR, // 字符
+  TY_PTR, // 指针
 } TypeKind;
 
 struct Type {
   TypeKind kind; // 类型的种类
   size_t size; // sizeof()的值，即所占的字节数
+
+  Type *target; // 指针的对象类型
 };
 
 extern Type *TYPE_INT;
 extern Type *TYPE_CHAR;
 
-bool is_int(Type *type);
+bool is_num(Type *type);
+bool is_ptr(Type *type);
+
 void mark_type(Node *node);
 char *type_name(Type *type);
 

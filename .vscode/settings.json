@@ -33,6 +33,8 @@
         "utility": "c",
         "iosfwd": "c",
         "tuple": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "optional": "c",
+        "sstream": "c"
     }
 }

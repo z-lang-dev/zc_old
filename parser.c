@@ -68,7 +68,7 @@ void print_node(Node *node, int level) {
     printf(" %ld:%s", node->val, type_name(node->type));
     break;
   case ND_IDENT:
-    printf(" %s", node->name);
+    printf(" %s:%s", node->name, type_name(node->type));
     break;
   case ND_ASN:
     printf("\n");
@@ -214,6 +214,14 @@ static Node *new_unary(NodeKind kind, Node *rhs) {
   node->rhs = rhs;
   return node;
 }
+
+/*
+static Node *new_num(int val) {
+  Node *node = new_node(ND_NUM);
+  node->val = val;
+  return node;
+}
+*/
 
 static Node *new_ident_node(Meta *meta) {
   Node *node = new_node(ND_IDENT);
@@ -523,14 +531,80 @@ static Node *relational(void) {
   }
 }
 
+static Node *new_add(Node *lhs, Node *rhs) {
+  mark_type(lhs);
+  mark_type(rhs);
+
+  // 如果无法获得两侧的类型，为了方便测试，先假设他们是int型，并报出警告
+  if (!lhs->type || !rhs->type) {
+    printf("【警告】: 无法获得加法两侧的类型\n");
+    lhs->type = TYPE_INT;
+    rhs->type = TYPE_INT;
+  }
+
+  // num + num
+  if (is_num(lhs->type) && is_num(rhs->type)) {
+    return new_binary(ND_PLUS, lhs, rhs);
+  }
+
+  // ptr + ptr: Error
+  if (lhs->type->target && rhs->type->target) {
+    error_tok(&cur_tok, "invalid operation");
+  }
+
+  // num + ptr: convert to ptr + num
+  if (!lhs->type->target && rhs->type->target) {
+    Node *tmp = lhs;
+    lhs = rhs;
+    rhs = tmp;
+  }
+
+  // ptr + num
+  return new_binary(ND_PLUS, lhs, rhs);
+}
+
+
+static Node *new_sub(Node *lhs, Node *rhs) {
+  mark_type(lhs);
+  mark_type(rhs);
+
+  // 如果无法获得两侧的类型，为了方便测试，先假设他们是int型，并报出警告
+  if (!lhs->type || !rhs->type) {
+    printf("【警告】: 无法获得加法两侧的类型\n");
+    lhs->type = TYPE_INT;
+    rhs->type = TYPE_INT;
+  }
+
+  // num - ptr: 不允许
+  if (is_num(lhs->type) && rhs->type->target) {
+    error_tok(&cur_tok, "不允许的操作：num - ptr");
+  }
+
+  Node *node = new_binary(ND_MINUS, lhs, rhs);
+  // num - num
+  if (is_num(lhs->type) && is_num(rhs->type)) {
+    node->type = lhs->type;
+  }
+  // ptr - ptr：计算两个指针之间的距离
+  if (lhs->type->target && rhs->type->target) {
+    node->type = TYPE_INT;
+  }
+  // ptr - num：指针减法
+  if (lhs->type->target && is_num(rhs->type)) {
+    node->type = lhs->type;
+  }
+  return node;
+}
+
+
 // add = mul ("+" mul | "-" mul )*
 static Node *add(void) {
   Node *node = mul();
   for (;;) {
     if (match(TK_PLUS)) {
-      node = new_binary(ND_PLUS, node, mul());
+      node = new_add(node, mul());
     } else if (match(TK_MINUS)) {
-      node = new_binary(ND_MINUS, node, mul());
+      node = new_sub(node, mul());
     } else {
       return node;
     }

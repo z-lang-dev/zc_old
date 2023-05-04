@@ -1,19 +1,54 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include "zc.h"
 
 // 整数类型
-Type *TYPE_INT= &(Type){TY_INT, 4}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
+Type *TYPE_INT= &(Type){TY_INT, INT_SIZE, NULL}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
 // 字符类型
-Type *TYPE_CHAR = &(Type){TY_CHAR, 1};
+Type *TYPE_CHAR = &(Type){TY_CHAR, CHAR_SIZE, NULL};
 
-bool is_int(Type *t) {
-  return t->kind == TY_INT;
+bool is_ptr(Type *t) {
+  if (!t) {
+    return false;
+  }
+  return t->kind == TY_PTR || t->target;
+}
+
+bool is_num(Type *t) {
+  if (!t) {
+    return false;
+  }
+  return t->kind == TY_INT || t->kind == TY_CHAR;
+}
+
+Type *pointer_to(Type *target) {
+  Type *type = calloc(1, sizeof(Type));
+  type->kind = TY_PTR;
+  type->size = PTR_SIZE; 
+  type->target = target;
+  return type;
+}
+
+char *format(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  char *buf = calloc(1, 1024);
+  vsprintf(buf, fmt, ap);
+  va_end(ap);
+  return buf;
 }
 
 char *type_name(Type *type) {
+  if (!type) {
+    return "null";
+  }
   switch (type->kind) {
     case TY_INT:
       return "int";
+    case TY_CHAR:
+      return "char";
+    case TY_PTR:
+      return format("%s*", type_name(type->target));
     default:
       return "unknown";
   }
@@ -47,10 +82,19 @@ void mark_type(Node *node) {
     case ND_MINUS:
     case ND_MUL:
     case ND_DIV:
-    case ND_ASN:
     case ND_NOT:
       node->type = node->lhs->type;
       return;
+    case ND_ASN:
+      node->type = node->rhs->type;
+      // 类型推导：如果左侧没有声明类型，就用右侧的类型
+      if (!node->lhs->type) {
+        node->lhs->type = node->rhs->type;
+        // 如果左侧是值量的标识符，也得把类型填入到对应的meta中，这样未来其他用到这个ident的地方才能通过meta获取到类型
+        if (node->lhs->kind == ND_IDENT) {
+          node->lhs->meta->type = node->rhs->type;
+        }
+      }
     case ND_NEG:
       node->type = node->rhs->type;
       return;
@@ -62,16 +106,32 @@ void mark_type(Node *node) {
       node->type = TYPE_INT;
       return;
     case ND_IDENT:
-      if (node->meta) {
+      if (!node->type && node->meta && node->meta->type) {
         node->type = node->meta->type;
-      } else {
-        error_tok(node->token, "该节点缺失了meta信息");
-      }
+      } 
       return;
     case ND_CALL:
       node->type = TYPE_INT;
       return;
+    case ND_ADDR:
+      node->type = pointer_to(node->rhs->type);
+      return;
+    case ND_DEREF:
+      if (node->rhs && node->rhs->type && node->rhs->type->kind == TY_PTR) {
+        node->type = node->rhs->type->target;
+      } else {
+        node->type = TYPE_INT;
+      }
+      return;
+    case ND_FN:
+    case ND_BLOCK:
+    case ND_IF:
+    case ND_FOR:
+      // TODO: 这些节点暂时不知道怎么处理，先不管了
+      node->type = TYPE_INT;
+      return;
     default:
+      printf("【警告】：未知的节点类型: %d\n", node->kind);
       // 其他类型不是末端节点，不需要单独处理
       return;
   }

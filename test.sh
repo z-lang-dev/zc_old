@@ -32,6 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 指针加减法
+test 13 "let a=13;let b=14;let p=&a; *p"
+test 3 "let a=2;let b=3; let p=&a; p=p+1; *p"
+test 22 "let a=22;let b=23;let p=&b; p=p-1; *p"
+
 # 指针
 test 13 "let a=13;let b=&a;*b"
 
