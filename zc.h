@@ -14,10 +14,17 @@
 
 typedef struct Type Type;
 typedef struct Node Node;
+typedef struct Value Value;
 
 
 // 版本号
 static const char *ZC_VERSION = "0.0.1";
+
+// =============================
+// 工具函数
+// =============================
+char *format(char *fmt, ...);
+
 
 // =============================
 // 词符
@@ -43,6 +50,9 @@ typedef enum {
   TK_RPAREN, // )
   TK_LCURLY, // {
   TK_RCURLY, // }
+  TK_LBRACK, // [
+  TK_RBRACK, // ]
+  TK_VBAR, // |
   TK_LET, // let
   TK_FN, // fn
   TK_IF, // if
@@ -101,6 +111,7 @@ struct Meta {
   Meta *params; // 函数的参数
   Meta *locals; // 所有的局部值量
   size_t stack_size; // 栈的尺寸
+
 };
 
 // 语法树节点的种类
@@ -126,6 +137,7 @@ typedef enum {
   ND_CALL, // 函数调用
   ND_ADDR, // &, 取地址
   ND_DEREF, // *, 指针取值
+  ND_ARRAY, // 数组字面值
   ND_UNKNOWN, // 未知 
 } NodeKind;
 
@@ -162,6 +174,10 @@ struct Node {
 
   // 普通数字
   long val; // 整数值
+
+  // 数组
+  Node *elems; // 数组的元素
+  size_t len; // 数组的长度
 };
 
 // 打印AST节点
@@ -215,6 +231,42 @@ Type *array_of(Type *elem, size_t len);
 
 Type *copy_type(Type *ty);
 
+
+// =============================
+// 运行时的动态值：value.c
+// =============================
+
+// 动态值的种类
+typedef enum {
+  VAL_INT,
+  VAL_ARRAY,
+} ValueKind;
+
+// 数组类型的动态值
+typedef struct {
+  Value* elems;
+  size_t len;
+} ValArray;
+
+// 动态值：采用tagged-union模式，支持不同种类的动态值
+struct Value {
+  ValueKind kind;
+  union {
+    long num;
+    ValArray *array;
+  } as;
+};
+
+char *val_to_str(Value *val);
+void print_values(void);
+
+#define MAX_VALUES 2048
+
+Value *get_val_by_addr(size_t addr);
+Value *get_val(Meta *meta);
+void set_val_by_addr(size_t addr, Value *val);
+void set_val(Meta *meta, Value *val);
+
 // =============================
 // 各个命令
 // =============================
@@ -226,7 +278,7 @@ void lex(const char *src);
 void parse(const char *src);
 
 // 求值
-int interpret(const char *src);
+Value *interpret(const char *src);
 
 // 编译
 void compile(const char *src);

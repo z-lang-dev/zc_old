@@ -52,15 +52,6 @@ Type *copy_type(Type *ty) {
   return ret;
 }
 
-char *format(char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  char *buf = calloc(1, 1024);
-  vsprintf(buf, fmt, ap);
-  va_end(ap);
-  return buf;
-}
-
 char *type_name(Type *type) {
   if (!type) {
     return "null";
@@ -72,6 +63,8 @@ char *type_name(Type *type) {
       return "char";
     case TY_PTR:
       return format("%s*", type_name(type->target));
+    case TY_ARRAY:
+      return format("[%s|%zu]", type_name(type->target), type->len);
     default:
       return "unknown";
   }
@@ -169,8 +162,16 @@ void mark_type(Node *node) {
       // TODO: 这些节点暂时不知道怎么处理，先不管了
       node->type = TYPE_INT;
       return;
+    case ND_ARRAY: {
+      if (node->elems) {
+        node->type = array_of(node->elems->type, node->len);
+        return;
+      } else {
+        node->type = array_of(TYPE_INT, 0);
+      }
+    }
     default:
-      printf("【警告】：未知的节点类型: %d\n", node->kind);
+      printf("【警告】：未知的节点类型: %d，无法标记\n", node->kind);
       // 其他类型不是末端节点，不需要单独处理
       return;
   }

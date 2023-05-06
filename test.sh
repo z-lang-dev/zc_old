@@ -32,6 +32,9 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 基本数组
+#test 3 "let a [int|3] = [3,2,1]; a"
+
 # 指针加减法
 test 13 "let a=13;let b=14;let p=&a; *p"
 test 3 "let a=2;let b=3; let p=&a; p=p+1; *p"

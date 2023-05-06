@@ -31,6 +31,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_CALL] = "CALL",
   [ND_ADDR] = "ADDR",
   [ND_DEREF] = "DEREF",
+  [ND_ARRAY] = "ARRAY",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -187,6 +188,15 @@ void print_node(Node *node, int level) {
     print_level(level);
     break;
   }
+  case ND_ARRAY: {
+    printf("[\n");
+    for (Node *n = node->elems; n; n = n->next) {
+      print_node(n, level+1);
+    }
+    print_level(level);
+    printf("]");
+    break;
+  }
   default:
     break;
   }
@@ -310,9 +320,12 @@ static Node *add(void);
 static Node *mul(void);
 static Node *unary(void);
 static Node *primary(void);
+static Node *array(void);
 static Node *block(void);
 static Node *ident_or_call(void);
 static Node *number(void);
+
+static Type *type(void);
 
 // program = expr*
 Node *program(void) {
@@ -409,7 +422,28 @@ static Type *find_type(Token *tok) {
   return NULL;
 }
 
+
+static Type* array_type(void) {
+  expect(TK_LBRACK, "'['");
+  Type *typ = calloc(1, sizeof(Type));
+  typ->kind = TY_ARRAY;
+  typ->target = type();
+  if (match(TK_VBAR)) {
+    Node *n = number();
+    print_node(n, 0);
+    typ->len = n->val;
+    typ->size = typ->len * typ->target->size;
+  }
+  expect(TK_RBRACK, "']'");
+  return typ;
+}
+
 static Type *type(void) {
+  // 数组
+  if (peek(TK_LBRACK)) {
+    return array_type();
+  }
+  // 普通类型
   // 类型名称必然是一个TK_IDENT
   if (!peek(TK_IDENT)) {
     error_tok(&cur_tok, "expected a type name\n");
@@ -667,7 +701,11 @@ static Node *unary(void) {
   return primary();
 }
 
-// primary = "(" expr ")" | ident | number
+// primary = "(" expr ")"
+//         | array
+//         | block
+//         | ident_or_call
+//         | number
 static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
@@ -676,6 +714,10 @@ static Node *primary(void) {
       exit(1);
     }
     return node;
+  }
+
+  if (peek(TK_LBRACK)) {
+    return array();
   }
 
   if (peek(TK_LCURLY)) {
@@ -687,6 +729,23 @@ static Node *primary(void) {
   }
 
   return number();
+}
+
+static Node *array(void) {
+  expect(TK_LBRACK, "[");
+  Node head = {0};
+  Node *cur = &head;
+  while (!peek(TK_RBRACK)) {
+    if (cur != &head) {
+      expect(TK_COMMA, ",");
+    }
+    cur = cur->next = expr();
+  }
+  expect(TK_RBRACK, "]");
+
+  Node *array_node = new_node(ND_ARRAY);
+  array_node->elems = head.next;
+  return array_node;
 }
 
 // call = ident "(" (expr ("," expr)*)? ")"
@@ -732,6 +791,7 @@ static Node *ident_or_call(void) {
 static Node *number(void) {
   Node *node = new_node(ND_NUM);
   node->val = strtol(cur_tok.pos, NULL, 10);
+  node->type = TYPE_INT;
   advance();
   return node;
 }

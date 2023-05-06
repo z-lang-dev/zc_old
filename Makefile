@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -Wall -Wextra -Wpedantic -Werror -g -I.
 CC=clang
-LIB_OBJS= lexer.o parser.o type.o
+LIB_OBJS= util.o lexer.o parser.o type.o value.o
 
 all: zc zi
 
