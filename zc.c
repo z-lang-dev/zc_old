@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "zc.h"
 
@@ -9,6 +10,22 @@ static FILE *fp;
 
 static void help(void) {
   printf("【用法】：./zc h|v|<源码>\n");
+}
+
+static void emit(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(fp, fmt, ap);
+  va_end(ap);
+}
+
+static void comment(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  fprintf(fp, "\t\t# ----- ");
+  vfprintf(fp, fmt, ap);
+  fprintf(fp, "\n");
+  va_end(ap);
 }
 
 static void gen_expr(Node *node);
@@ -44,24 +61,47 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+// 用来累计临时标签的值，区分同一段函数的不同标签
 static int count(void) {
   static int i = 1;
   return i++;
 }
 
+// 将rax寄存器的值压入栈中
 static void push(void) {
-  fprintf(fp, "  push rax\n");
+  emit("  push rax\n");
 }
 
+// 将栈顶的值弹出到指定的寄存器中
 static void pop(char *reg) {
-  fprintf(fp, "  pop %s\n", reg);
+  emit("  pop %s\n", reg);
 }
 
+// 将地址中的值加载到rax寄存器中，需要在前一句代码中emit出地址，例如gen_addr或gen_deref
+static void load(Type *type) {
+  comment("Load.");
+  // 数组类型的变量，没法直接load出整个数组的数据，而是只能获取到对应的第一个元素的指针。
+  // 由于load()前面必然会获取地址，因此这里什么都不需要做
+  if (type->kind == TY_ARRAY) {
+    return;
+  }
+  // 将变量的值加载到rax寄存器中
+  emit("  mov rax, [rax]\n");
+}
+
+// 将rax寄存器的值存入到栈顶的地址中
+static void store(void) {
+  comment("Store.");
+  pop("rdi");
+  emit("  mov [rdi], rax\n");
+}
+
+// 获取值量对应的局部地址，放在rax中
 static void gen_addr(Node *node) {
   switch (node->kind) {
   case ND_IDENT: {
     int offset = node->meta->offset;
-    fprintf(fp, "  lea rax, [rbp-%d]\n", offset);
+    emit("  lea rax, [rbp-%d]\n", offset);
     return;
   }
   case ND_DEREF: {
@@ -78,26 +118,26 @@ static void gen_expr(Node *node) {
     case ND_IF: {
       int c = count();
       gen_expr(node->cond);
-      fprintf(fp, "  cmp rax, 0\n");
-      fprintf(fp, "  je .L.else.%d\n", c);
+      emit("  cmp rax, 0\n");
+      emit("  je .L.else.%d\n", c);
       gen_expr(node->then);
-      fprintf(fp, "  jmp .L.end.%d\n", c);
-      fprintf(fp, ".L.else.%d:\n", c);
+      emit("  jmp .L.end.%d\n", c);
+      emit(".L.else.%d:\n", c);
       if (node->els) {
         gen_expr(node->els);
       }
-      fprintf(fp, ".L.end.%d:\n", c);
+      emit(".L.end.%d:\n", c);
       return;
     }
     case ND_FOR: {
       int c = count();
-      fprintf(fp, ".L.begin.%d:\n", c);
+      emit(".L.begin.%d:\n", c);
       gen_expr(node->cond);
-      fprintf(fp, "  cmp rax, 0\n");
-      fprintf(fp, "  je .L.end.%d\n", c);
+      emit("  cmp rax, 0\n");
+      emit("  je .L.end.%d\n", c);
       gen_expr(node->body);
-      fprintf(fp, "  jmp .L.begin.%d\n", c);
-      fprintf(fp, ".L.end.%d:\n", c);
+      emit("  jmp .L.begin.%d\n", c);
+      emit(".L.end.%d:\n", c);
       return;
     }
     case ND_FN:
@@ -106,7 +146,7 @@ static void gen_expr(Node *node) {
     case ND_CALL: {
       int nargs = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
-        fprintf(fp, "\t\t# ----- Arg <%ld>\n", arg->val);
+        emit("\t\t# ----- Arg <%ld>\n", arg->val);
         gen_expr(arg);
         push();
         nargs++;
@@ -116,9 +156,9 @@ static void gen_expr(Node *node) {
         pop(arg_regs[i]);
       }
 
-      fprintf(fp, "\t\t# ----- Calling %s()\n", node->meta->name);
-      fprintf(fp, "  mov rax, 0\n");
-      fprintf(fp, "  call %s\n", node->meta->name);
+      emit("\t\t# ----- Calling %s()\n", node->meta->name);
+      emit("  mov rax, 0\n");
+      emit("  call %s\n", node->meta->name);
       return;
     }
     case ND_BLOCK: {
@@ -128,33 +168,80 @@ static void gen_expr(Node *node) {
       return;
     }
     case ND_NUM:
-      fprintf(fp, "  mov rax, %ld\n", node->val);
+      emit("  mov rax, %ld\n", node->val);
       return;
     case ND_NEG:
       gen_expr(node->rhs);
-      fprintf(fp, "  neg rax\n");
+      emit("  neg rax\n");
       return;
     case ND_IDENT:
       gen_addr(node);
-      fprintf(fp, "  mov rax, [rax]\n");
+      load(node->type);
       return;
     case ND_ASN:
-      fprintf(fp, "\t\t# ----- Assignment.\n");
+      emit("\t\t# ----- Assignment.\n");
       gen_addr(node->lhs);
       push();
       gen_expr(node->rhs);
-      pop("rdi");
-      fprintf(fp, "  mov [rdi], rax\n");
+      store();
       return;
     case ND_ADDR:
-      fprintf(fp, "\t\t# ----- Get addr for pointer.\n");
+      emit("\t\t# ----- Get addr for pointer.\n");
       gen_addr(node->rhs);
       return;
     case ND_DEREF:
-      fprintf(fp, "\t\t# ----- Deref a pointer.\n");
+      emit("\t\t# ----- Deref a pointer.\n");
       gen_expr(node->rhs);
-      fprintf(fp, "  mov rax, [rax]\n");
+      load(node->type);
       return;
+    case ND_ARRAY: {
+      emit("\t\t# ----- Array literal.\n");
+      // 如果数组长度为1，那么处理方式和普通值量一样，只需要对节点的第一个元素求值即可
+      if (node->len == 1) {
+        gen_expr(node->elems);
+        return;
+      }
+
+      // 如果有多个元素，则每个元素都需要求值，然后调用store()存入栈上分配的空间里。
+      // 注意，每个元素的地址要递增
+      size_t k = 0;
+      for (Node *n=node->elems; n; n=n->next) {
+        gen_expr(n);
+        // 递增rdi中的地址，并存到栈顶。这是因为store()函数是从栈顶获取地址，并放到rdi中进行计算的
+        // TODO: 优化store()和load()函数，减少地址压栈操作
+        if (k < node->len - 1) {
+          store();
+          comment("Increment address in rdi.");
+          emit("  add rdi, %ld\n", n->type->size);
+        } else {
+          comment("Last addr for array.");
+        }
+        emit("  push rdi\n");
+        k++;
+      }
+      return;
+    }
+    case ND_INDEX: {
+      comment("Array index.");
+      // array
+      Node *array_ident = node->lhs;
+      gen_addr(array_ident);
+      push();
+      // index
+      gen_expr(node->rhs);
+      push();
+
+      Type *elem_type = array_ident->type->target;
+
+      // 获取地址偏移
+      pop("rdi");
+      pop("rax");
+      emit("  imul rdi, %d\n", elem_type->size);
+      emit("  add rax, rdi\n");
+
+      load(node->lhs->type->target);
+      return;
+    }
     default:
       break;
   }
@@ -176,54 +263,54 @@ static void gen_expr(Node *node) {
       // ptr + num
       if (node->lhs->type->kind == TY_PTR) {
         // 如果加法左侧是指针类型，那么所加的值应当乘以8，即ptr+1相当于地址移动8个字节
-        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
+        emit("  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
       }
 
-      fprintf(fp, "  add rax, rdi\n");
+      emit("  add rax, rdi\n");
       return;
     }
     case ND_MINUS: {
       // ptr - num
       if (is_ptr(node->lhs->type) && is_num(node->rhs->type)) {
         // 如果减法左侧是指针类型，那么所减的值应当乘以8，即ptr-1相当于地址移动-8个字节
-        fprintf(fp, "  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
+        emit("  imul rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
       }
-      fprintf(fp, "  sub rax, rdi\n");
+      emit("  sub rax, rdi\n");
       // ptr - ptr
       if (is_ptr(node->lhs->type) && is_ptr(node->rhs->type)) {
-        fprintf(fp, "  cqo\n");
-        fprintf(fp, "  mov rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
-        fprintf(fp, "  idiv rdi\n");
+        emit("  cqo\n");
+        emit("  mov rdi, %d\n", OFFSET_SIZE /*node->lhs->type->target->size*/);
+        emit("  idiv rdi\n");
         return;
       }
       return;
     }
     case ND_MUL:
-      fprintf(fp, "  imul rax, rdi\n");
+      emit("  imul rax, rdi\n");
       return;
     case ND_DIV:
-      fprintf(fp, "  cqo\n");
-      fprintf(fp, "  idiv rdi\n");
+      emit("  cqo\n");
+      emit("  idiv rdi\n");
       return;
     case ND_EQ:
     case ND_NE:
     case ND_LT:
     case ND_LE: {
-      fprintf(fp, "  cmp rax, rdi\n");
+      emit("  cmp rax, rdi\n");
       if (node->kind== ND_EQ) {
-        fprintf(fp, "  sete al\n");
+        emit("  sete al\n");
       } else if (node->kind== ND_NE) {
-        fprintf(fp, "  setne al\n");
+        emit("  setne al\n");
       } else if (node->kind== ND_LT) {
-        fprintf(fp, "  setl al\n");
+        emit("  setl al\n");
       } else if (node->kind== ND_LE) {
-        fprintf(fp, "  setle al\n");
+        emit("  setle al\n");
       }
-      fprintf(fp, "  movzx rax, al\n");
+      emit("  movzx rax, al\n");
       return;
     }
     default:
-      error_tok(node->token, "【错误】：不支持的运算符：%c\n", node->kind);
+      error_tok(node->token, "【CodeGen错误】：不支持的运算符：%c\n", node->kind);
   }
 
 }
@@ -237,6 +324,7 @@ static void set_local_offsets(Meta *scope) {
   int offset = 0;
   for (Meta *meta= scope->locals; meta; meta=meta->next) {
     if (meta->kind == META_LET) {
+      // 注意，这里数组的size实际是(元素尺寸*len)
       offset += meta->type->size;
       meta->offset = offset;
     }
@@ -245,36 +333,36 @@ static void set_local_offsets(Meta *scope) {
 }
 
 static void gen_fn(Meta *meta) {
-  fprintf(fp, "\t\t# ===== [Define Function: %s]\n", meta->name);
+  emit("\t\t# ===== [Define Function: %s]\n", meta->name);
   set_local_offsets(meta);
-  fprintf(fp, "\n  .global %s\n", meta->name);
-  fprintf(fp, "%s:\n", meta->name);
+  emit("\n  .global %s\n", meta->name);
+  emit("%s:\n", meta->name);
 
   // Prologue
-  fprintf(fp, "\t\t# ----- Prologue\n");
-  fprintf(fp, "  push rbp\n");
-  fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, %zu\n", meta->stack_size);
+  emit("\t\t# ----- Prologue\n");
+  emit("  push rbp\n");
+  emit("  mov rbp, rsp\n");
+  emit("  sub rsp, %zu\n", meta->stack_size);
 
   // 处理参数
-  fprintf(fp, "\t\t# ----- Handle params\n");
+  emit("\t\t# ----- Handle params\n");
   int i = 0;
   for (Meta *p = meta->params; p; p = p->next) {
-    fprintf(fp, "  mov [rbp-%d], %s\n", p->offset, arg_regs[i++]);
+    emit("  mov [rbp-%d], %s\n", p->offset, arg_regs[i++]);
   }
 
-  fprintf(fp, "\t\t# ----- Function body\n");
+  emit("\t\t# ----- Function body\n");
   // 生成函数体
   for (Node *n = meta->body; n; n = n->next) {
     gen_expr(n);
   }
 
   // Epilogue
-  fprintf(fp, "\t\t# ------ Epilogue\n");
-  fprintf(fp, ".L.return.%s:\n", meta->name);
-  fprintf(fp, "  mov rsp, rbp\n");
-  fprintf(fp, "  pop rbp\n");
-  fprintf(fp, "  ret\n");
+  emit("\t\t# ------ Epilogue\n");
+  emit(".L.return.%s:\n", meta->name);
+  emit("  mov rsp, rbp\n");
+  emit("  pop rbp\n");
+  emit("  ret\n");
 }
 
 
@@ -284,9 +372,9 @@ void compile(const char *src) {
 
   // 打开目标汇编文件，并写入汇编代码
   fp = fopen("app.s", "w");
-  fprintf(fp, "  .intel_syntax noprefix\n");
-  fprintf(fp, "  .global main\n");
-  fprintf(fp, "main:\n");
+  emit("  .intel_syntax noprefix\n");
+  emit("  .global main\n");
+  emit("main:\n");
 
 
   new_lexer(src);
@@ -294,18 +382,18 @@ void compile(const char *src) {
   set_local_offsets(prog->meta);
 
   // Prologue
-  fprintf(fp, "  push rbp\n");
-  fprintf(fp, "  mov rbp, rsp\n");
-  fprintf(fp, "  sub rsp, %zu\n", prog->meta->stack_size);
+  emit("  push rbp\n");
+  emit("  mov rbp, rsp\n");
+  emit("  sub rsp, %zu\n", prog->meta->stack_size);
 
   for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n);
   }
 
   // Epilogue
-  fprintf(fp, "  mov rsp, rbp\n");
-  fprintf(fp, "  pop rbp\n");
-  fprintf(fp, "  ret\n");
+  emit("  mov rsp, rbp\n");
+  emit("  pop rbp\n");
+  emit("  ret\n");
 
   // 生成自定义函数的代码
   for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {

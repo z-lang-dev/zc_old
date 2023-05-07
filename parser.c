@@ -443,7 +443,6 @@ static Type* array_type(void) {
   typ->target = type();
   if (match(TK_VBAR)) {
     Node *n = number();
-    print_node(n, 0);
     typ->len = n->val;
     typ->size = typ->len * typ->target->size;
   }
@@ -760,6 +759,7 @@ static Node *primary(void) {
 
 static Node *array(void) {
   expect(TK_LBRACK, "[");
+  // TODO: 现在array节点还是用链表来实现的，应该改为数组
   Node head = {0};
   Node *cur = &head;
   int n = 0;

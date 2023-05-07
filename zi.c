@@ -197,7 +197,7 @@ Value *interpret(const char *src) {
   Value *r;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);
-    printf("%ld\n", r->as.num);
+    printf("= %s\n", val_to_str(r));
   }
   print_values();
   return r;

@@ -33,7 +33,11 @@ test() {
 }
 
 # 基本数组
-# test 12 "let a [int|3] = [11,12,13]; a[1]"
+test 4 "let a [int|1] = [4]; a[0]"
+test 6 "let a [int|2] = [3,6]; a[1]"
+test 9 "let a [int|3] = [3,6,9]; a[2]"
+
+exit
 
 # 指针加减法
 test 13 "let a=13;let b=14;let p=&a; *p"
