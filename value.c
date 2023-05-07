@@ -28,8 +28,7 @@ char *val_to_str(Value *val) {
     case VAL_ARRAY: {
       char *buf = format("[");
       for (size_t i = 0; i < val->as.array->len; i++) {
-        Value *elem = &(val->as.array->elems[i]);
-        buf = format("%s%s", buf, val_to_str(elem));
+        buf = format("%s%s", buf, val_to_str(&val->as.array->elems[i]));
         if (i < val->as.array->len - 1) {
           buf = format("%s, ", buf);
         }

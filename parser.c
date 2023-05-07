@@ -32,6 +32,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_ADDR] = "ADDR",
   [ND_DEREF] = "DEREF",
   [ND_ARRAY] = "ARRAY",
+  [ND_INDEX] = "INDEX",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -197,6 +198,17 @@ void print_node(Node *node, int level) {
     printf("]");
     break;
   }
+  case ND_INDEX: {
+    printf("\n");
+    print_node(node->lhs, level+1);
+    print_level(level+1);
+    printf("[\n");
+    print_node(node->rhs, level+2);
+    print_level(level+1);
+    printf("]\n");
+    print_level(level);
+    break;
+  }
   default:
     break;
   }
@@ -318,6 +330,7 @@ static Node *equality(void);
 static Node *relational(void);
 static Node *add(void);
 static Node *mul(void);
+static Node *postfix(void);
 static Node *unary(void);
 static Node *primary(void);
 static Node *array(void);
@@ -684,21 +697,35 @@ static Node *mul(void) {
   }
 }
 
-// unary = ("+" | "-" | "&" | "*")? primary
+// unary = ("+" | "-" | "&" | "*")? unary
+//       | postfix 
 static Node *unary(void) {
   if (match(TK_PLUS)) {
-    return primary();
+    return unary();
   }
   if (match(TK_MINUS)) {
-    return new_unary(ND_NEG, primary());
+    return new_unary(ND_NEG, unary());
   }
   if (match(TK_AMP)) {
-    return new_unary(ND_ADDR, primary());
+    return new_unary(ND_ADDR, unary());
   }
   if (match(TK_STAR)) {
-    return new_unary(ND_DEREF, primary());
+    return new_unary(ND_DEREF, unary());
   }
-  return primary();
+  return postfix();
+}
+
+// postfix = primary ("[" expr "]")*
+static Node *postfix(void) {
+  Node *node = primary();
+  for (;;) {
+    if (match(TK_LBRACK)) {
+      node = new_binary(ND_INDEX, node, expr());
+      expect(TK_RBRACK, "]");
+    } else {
+      return node;
+    }
+  }
 }
 
 // primary = "(" expr ")"
@@ -735,16 +762,19 @@ static Node *array(void) {
   expect(TK_LBRACK, "[");
   Node head = {0};
   Node *cur = &head;
+  int n = 0;
   while (!peek(TK_RBRACK)) {
     if (cur != &head) {
       expect(TK_COMMA, ",");
     }
     cur = cur->next = expr();
+    n++;
   }
   expect(TK_RBRACK, "]");
 
   Node *array_node = new_node(ND_ARRAY);
   array_node->elems = head.next;
+  array_node->len = n;
   return array_node;
 }
 

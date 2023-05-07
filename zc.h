@@ -138,6 +138,7 @@ typedef enum {
   ND_ADDR, // &, 取地址
   ND_DEREF, // *, 指针取值
   ND_ARRAY, // 数组字面值
+  ND_INDEX, // 数组下标
   ND_UNKNOWN, // 未知 
 } NodeKind;
 
@@ -207,7 +208,7 @@ struct Type {
 
   size_t len; // 数组的长度
 
-  Type *target; // 指针的对象类型
+  Type *target; // 指针的对象类型，或者数组的元素类型
 
   Type *ret_type; // 函数的返回值类型
   Type *param_types; // 函数的参数类型

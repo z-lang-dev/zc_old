@@ -170,6 +170,10 @@ void mark_type(Node *node) {
         node->type = array_of(TYPE_INT, 0);
       }
     }
+    case ND_INDEX: {
+      node->type = node->lhs->type->target;
+      return;
+    }
     default:
       printf("【警告】：未知的节点类型: %d，无法标记\n", node->kind);
       // 其他类型不是末端节点，不需要单独处理

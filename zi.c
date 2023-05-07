@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include "zc.h"
 
+Value *gen_expr(Node *node);
+
 static size_t get_addr(Node *node) {
   if (node->kind != ND_IDENT) {
     error_tok(node->token, "不是值量，不能取地址");
@@ -34,6 +36,23 @@ static Value* val_true(void) {
 
 static Value* val_false(void) {
   return val_num(0);
+}
+
+static Value* val_array(Node* node) {
+  if (node->kind != ND_ARRAY) {
+    error_tok(node->token, "不是数组");
+  }
+  Value *val = malloc(sizeof(Value));
+  val->kind = VAL_ARRAY;
+  val->as.array = malloc(sizeof(ValArray));
+  val->as.array->len = node->len;
+  val->as.array->elems = malloc(sizeof(Value) * node->len);
+  Node *elem = node->elems;
+  for (size_t i = 0; i < node->len; i++) {
+    val->as.array->elems[i] = *gen_expr(elem);
+    elem = elem->next;
+  }
+  return val;
 }
 
 static void help(void) {
@@ -143,7 +162,6 @@ Value *gen_expr(Node *node) {
         ret = val_num(0);
       }
       Node *ident = node->lhs;
-      printf("setting value: %s\n", val_to_str(ret));
       set_val(ident->meta, ret);
       return ret;
     }
@@ -154,8 +172,12 @@ Value *gen_expr(Node *node) {
     case ND_DEREF:
       return get_deref(node->rhs);
     case ND_ARRAY: {
-      // TODO: 实现Value类型，支持数组
-      return val_num(0);
+      return val_array(node);
+    }
+    case ND_INDEX: {
+      Value *arr = gen_expr(node->lhs);
+      Value *idx = gen_expr(node->rhs);
+      return &arr->as.array->elems[idx->as.num];
     }
     default:
       error_tok(node->token, "【错误】：CodeGen 不支持的节点：");
