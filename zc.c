@@ -5,12 +5,13 @@
 #include "zc.h"
 
 static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+static FILE *fp;
 
 static void help(void) {
   printf("【用法】：./zc h|v|<源码>\n");
 }
 
-static void gen_expr(Node *node, FILE *fp);
+static void gen_expr(Node *node);
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -48,15 +49,15 @@ static int count(void) {
   return i++;
 }
 
-static void push(FILE *fp) {
+static void push(void) {
   fprintf(fp, "  push rax\n");
 }
 
-static void pop(char *reg, FILE *fp) {
+static void pop(char *reg) {
   fprintf(fp, "  pop %s\n", reg);
 }
 
-static void gen_addr(Node *node, FILE *fp) {
+static void gen_addr(Node *node) {
   switch (node->kind) {
   case ND_IDENT: {
     int offset = node->meta->offset;
@@ -64,7 +65,7 @@ static void gen_addr(Node *node, FILE *fp) {
     return;
   }
   case ND_DEREF: {
-    gen_expr(node->rhs, fp);
+    gen_expr(node->rhs);
     return;
   }
   default:
@@ -72,18 +73,18 @@ static void gen_addr(Node *node, FILE *fp) {
   }
 }
 
-static void gen_expr(Node *node, FILE *fp) {
+static void gen_expr(Node *node) {
   switch (node->kind) {
     case ND_IF: {
       int c = count();
-      gen_expr(node->cond, fp);
+      gen_expr(node->cond);
       fprintf(fp, "  cmp rax, 0\n");
       fprintf(fp, "  je .L.else.%d\n", c);
-      gen_expr(node->then, fp);
+      gen_expr(node->then);
       fprintf(fp, "  jmp .L.end.%d\n", c);
       fprintf(fp, ".L.else.%d:\n", c);
       if (node->els) {
-        gen_expr(node->els, fp);
+        gen_expr(node->els);
       }
       fprintf(fp, ".L.end.%d:\n", c);
       return;
@@ -91,10 +92,10 @@ static void gen_expr(Node *node, FILE *fp) {
     case ND_FOR: {
       int c = count();
       fprintf(fp, ".L.begin.%d:\n", c);
-      gen_expr(node->cond, fp);
+      gen_expr(node->cond);
       fprintf(fp, "  cmp rax, 0\n");
       fprintf(fp, "  je .L.end.%d\n", c);
-      gen_expr(node->body, fp);
+      gen_expr(node->body);
       fprintf(fp, "  jmp .L.begin.%d\n", c);
       fprintf(fp, ".L.end.%d:\n", c);
       return;
@@ -106,13 +107,13 @@ static void gen_expr(Node *node, FILE *fp) {
       int nargs = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
         fprintf(fp, "\t\t# ----- Arg <%ld>\n", arg->val);
-        gen_expr(arg, fp);
-        push(fp);
+        gen_expr(arg);
+        push();
         nargs++;
       }
 
       for (int i = nargs - 1; i >= 0; i--) {
-        pop(arg_regs[i], fp);
+        pop(arg_regs[i]);
       }
 
       fprintf(fp, "\t\t# ----- Calling %s()\n", node->meta->name);
@@ -122,7 +123,7 @@ static void gen_expr(Node *node, FILE *fp) {
     }
     case ND_BLOCK: {
       for (Node *n=node->body; n; n=n->next) {
-        gen_expr(n, fp);
+        gen_expr(n);
       }
       return;
     }
@@ -130,28 +131,28 @@ static void gen_expr(Node *node, FILE *fp) {
       fprintf(fp, "  mov rax, %ld\n", node->val);
       return;
     case ND_NEG:
-      gen_expr(node->rhs, fp);
+      gen_expr(node->rhs);
       fprintf(fp, "  neg rax\n");
       return;
     case ND_IDENT:
-      gen_addr(node, fp);
+      gen_addr(node);
       fprintf(fp, "  mov rax, [rax]\n");
       return;
     case ND_ASN:
       fprintf(fp, "\t\t# ----- Assignment.\n");
-      gen_addr(node->lhs, fp);
-      push(fp);
-      gen_expr(node->rhs, fp);
-      pop("rdi", fp);
+      gen_addr(node->lhs);
+      push();
+      gen_expr(node->rhs);
+      pop("rdi");
       fprintf(fp, "  mov [rdi], rax\n");
       return;
     case ND_ADDR:
       fprintf(fp, "\t\t# ----- Get addr for pointer.\n");
-      gen_addr(node->rhs, fp);
+      gen_addr(node->rhs);
       return;
     case ND_DEREF:
       fprintf(fp, "\t\t# ----- Deref a pointer.\n");
-      gen_expr(node->rhs, fp);
+      gen_expr(node->rhs);
       fprintf(fp, "  mov rax, [rax]\n");
       return;
     default:
@@ -159,14 +160,14 @@ static void gen_expr(Node *node, FILE *fp) {
   }
 
   // 计算左侧结果并压栈
-  gen_expr(node->lhs, fp);
-  push(fp);
+  gen_expr(node->lhs);
+  push();
   // 计算右侧结果并压栈
-  gen_expr(node->rhs, fp);
-  push(fp);
+  gen_expr(node->rhs);
+  push();
   // 把盏顶的两个值弹出到rax和rdi
-  pop("rdi", fp);
-  pop("rax", fp);
+  pop("rdi");
+  pop("rax");
   // TODO: 上面的计算如果左右顺序反过来，就可以节省一次push和pop，未来可以考虑优化
 
   // 执行计算
@@ -243,7 +244,7 @@ static void set_local_offsets(Meta *scope) {
   scope->stack_size = align_to(offset, 16);
 }
 
-static void gen_fn(Meta *meta, FILE *fp) {
+static void gen_fn(Meta *meta) {
   fprintf(fp, "\t\t# ===== [Define Function: %s]\n", meta->name);
   set_local_offsets(meta);
   fprintf(fp, "\n  .global %s\n", meta->name);
@@ -265,7 +266,7 @@ static void gen_fn(Meta *meta, FILE *fp) {
   fprintf(fp, "\t\t# ----- Function body\n");
   // 生成函数体
   for (Node *n = meta->body; n; n = n->next) {
-    gen_expr(n, fp);
+    gen_expr(n);
   }
 
   // Epilogue
@@ -282,7 +283,7 @@ void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
   // 打开目标汇编文件，并写入汇编代码
-  FILE *fp = fopen("app.s", "w");
+  fp = fopen("app.s", "w");
   fprintf(fp, "  .intel_syntax noprefix\n");
   fprintf(fp, "  .global main\n");
   fprintf(fp, "main:\n");
@@ -298,7 +299,7 @@ void compile(const char *src) {
   fprintf(fp, "  sub rsp, %zu\n", prog->meta->stack_size);
 
   for (Node *n = prog->body; n; n = n->next) {
-    gen_expr(n, fp);
+    gen_expr(n);
   }
 
   // Epilogue
@@ -309,7 +310,7 @@ void compile(const char *src) {
   // 生成自定义函数的代码
   for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
     if (meta->kind== META_FN) {
-      gen_fn(meta, fp);
+      gen_fn(meta);
     }
   }
 
