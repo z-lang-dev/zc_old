@@ -32,12 +32,20 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 简单字符
+test 97 "'a'"
+test 122 "'z'"
+test 65 "'A'"
+test 90 "'Z'"
+test 48 "'0'"
+test 57 "'9'"
+
+exit
+
 # 基本数组
 test 4 "let a [int|1] = [4]; a[0]"
 test 6 "let a [int|2] = [3,6]; a[1]"
 test 9 "let a [int|3] = [3,6,9]; a[2]"
-
-exit
 
 # 指针加减法
 test 13 "let a=13;let b=14;let p=&a; *p"

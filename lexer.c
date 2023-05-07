@@ -44,6 +44,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_MINUS] = "TK_MINUS",
   [TK_STAR] = "TK_STAR",
   [TK_SLASH] = "TK_SLASH",
+  [TK_APOS] = "TK_APOS",
   [TK_ASN] = "TK_ASN",
   [TK_GT] = "TK_GT",
   [TK_LT] = "TK_LT",
@@ -204,6 +205,8 @@ Token next_token(void) {
       return make_token(TK_STAR);
     case '/':
       return make_token(TK_SLASH);
+    case '\'':
+      return make_token(TK_APOS);
     case '(':
       return make_token(TK_LPAREN);
     case ')':

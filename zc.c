@@ -180,6 +180,9 @@ static void gen_expr(Node *node) {
     case ND_NUM:
       emit("mov rax, %ld", node->val);
       return;
+    case ND_CHAR:
+      emit("mov rax, '%c'", node->cha);
+      return;
     case ND_NEG:
       gen_expr(node->rhs);
       emit("neg rax");

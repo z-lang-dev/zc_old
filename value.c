@@ -25,6 +25,8 @@ char *val_to_str(Value *val) {
   switch (val->kind) {
     case VAL_INT:
       return format("%ld", val->as.num);
+    case VAL_CHAR:
+      return format("%c", val->as.cha);
     case VAL_ARRAY: {
       char *buf = format("[");
       for (size_t i = 0; i < val->as.array->len; i++) {

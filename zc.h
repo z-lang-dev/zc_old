@@ -38,6 +38,7 @@ typedef enum {
   TK_MINUS, // -
   TK_STAR, // *
   TK_SLASH, // /
+  TK_APOS, // '
   TK_ASN, // =
   TK_NOT, // !
   TK_GT, // >
@@ -117,6 +118,7 @@ struct Meta {
 // 语法树节点的种类
 typedef enum {
   ND_NUM, // 整数
+  ND_CHAR, // 字符
   ND_PLUS, // +
   ND_MINUS, // -
   ND_MUL, // *
@@ -172,6 +174,9 @@ struct Node {
 
   // 函数调用
   Node *args;
+
+  // 字符
+  char cha;
 
   // 普通数字
   long val; // 整数值
@@ -240,6 +245,7 @@ Type *copy_type(Type *ty);
 // 动态值的种类
 typedef enum {
   VAL_INT,
+  VAL_CHAR,
   VAL_ARRAY,
 } ValueKind;
 
@@ -254,6 +260,7 @@ struct Value {
   ValueKind kind;
   union {
     long num;
+    char cha;
     ValArray *array;
   } as;
 };

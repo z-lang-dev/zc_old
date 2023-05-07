@@ -11,6 +11,7 @@ Meta *locals;
 
 static const char* const NODE_KIND_NAMES[] = {
   [ND_NUM] = "NUM",
+  [ND_CHAR] = "CHAR",
   [ND_PLUS] = "PLUS",
   [ND_MINUS] = "MINUS",
   [ND_MUL] = "MUL",
@@ -82,6 +83,9 @@ void print_node(Node *node, int level) {
     break;
   case ND_IDENT:
     printf(" %s:%s", node->name, type_name(node->type));
+    break;
+  case ND_CHAR:
+    printf(" %c:%s", node->cha, type_name(node->type));
     break;
   case ND_ASN:
     printf("\n");
@@ -337,6 +341,7 @@ static Node *array(void);
 static Node *block(void);
 static Node *ident_or_call(void);
 static Node *number(void);
+static Node *character(void);
 
 static Type *type(void);
 
@@ -732,6 +737,7 @@ static Node *postfix(void) {
 //         | block
 //         | ident_or_call
 //         | number
+//         | char
 static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
@@ -752,6 +758,10 @@ static Node *primary(void) {
 
   if (peek(TK_IDENT)) {
     return ident_or_call();
+  }
+
+  if (peek(TK_APOS)) {
+    return character();
   }
 
   return number();
@@ -823,6 +833,17 @@ static Node *number(void) {
   node->val = strtol(cur_tok.pos, NULL, 10);
   node->type = TYPE_INT;
   advance();
+  return node;
+}
+
+// character = "'" [a-zA-Z0-9] "'"
+static Node *character(void) {
+  expect(TK_APOS, "'");
+  Node *node = new_node(ND_CHAR);
+  node->cha = cur_tok.pos[0];
+  node->type = TYPE_CHAR;
+  advance();
+  expect(TK_APOS, "'");
   return node;
 }
 

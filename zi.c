@@ -30,6 +30,13 @@ static Value* val_num(long num) {
   return val;
 }
 
+static Value* val_char(char cha) {
+  Value *val = malloc(sizeof(Value));
+  val->kind = VAL_CHAR;
+  val->as.cha = cha;
+  return val;
+}
+
 static Value* val_true(void) {
   return val_num(1);
 }
@@ -72,7 +79,15 @@ int main(int argc, char *argv[]) {
     printf("Z语言解释器，版本号：%s。\n", ZC_VERSION);
   } else {
     char *src = cmd;
-    return interpret(src)->as.num;
+    Value * ret = interpret(src);
+    switch (ret->kind) {
+    case VAL_INT:
+      return ret->as.num;
+    case VAL_CHAR:
+      return ret->as.cha;
+    case VAL_ARRAY:
+      return ret->as.array->elems[0].as.num;
+    }
   }
   return 0;
 }
@@ -134,6 +149,8 @@ Value *gen_expr(Node *node) {
     }
     case ND_NUM:
       return val_num(node->val);
+    case ND_CHAR:
+      return val_char(node->cha);
     case ND_PLUS:
       // TODO: 所有的运算都应该加上类型判断，暂时只有int型所以还没处理
       return val_num(gen_expr(node->lhs)->as.num + gen_expr(node->rhs)->as.num);

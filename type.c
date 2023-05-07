@@ -128,6 +128,9 @@ void mark_type(Node *node) {
     case ND_NUM:
       node->type = TYPE_INT;
       return;
+    case ND_CHAR:
+      node->type = TYPE_CHAR;
+      return;
     case ND_IDENT: {
       if (!node->type && node->meta && node->meta->type) {
         node->type = node->meta->type;
