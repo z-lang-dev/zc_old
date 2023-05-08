@@ -5,9 +5,21 @@
 
 #include "zc.h"
 
-Token cur_tok;
-Token prev_tok;
-Meta *locals;
+static Token cur_tok;
+static Token prev_tok;
+static Meta *locals;
+
+static Scope *scope = &(Scope){0};
+
+static void enter_scope(void) {
+  Scope *sc = calloc(1, sizeof(Scope));
+  sc->parent = scope;
+  scope = sc;
+}
+
+static void leave_scope(void) {
+  scope = scope->parent;
+}
 
 static const char* const NODE_KIND_NAMES[] = {
   [ND_NUM] = "NUM",
@@ -223,12 +235,20 @@ void print_node(Node *node, int level) {
   printf(")\n");
 }
 
+
+static bool equals(Token *token, const char *str) {
+  return token->len == strlen(str) && !strncmp(token->pos, str, token->len);
+}
+
 // 查看名符是否已经在locals中记录了。包括所有的量名符和函数名符。
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
 static Meta *find_local(Token *tok) {
-  for (Meta *m= locals; m; m=m->next) {
-    if (tok->len == strlen(m->name) && !strncmp(tok->pos, m->name, tok->len)) {
-      return m;
+  // 从最近的scope到更外层的scope依次查找
+  for (Scope *sc = scope; sc; sc = sc->parent) {
+    for (IdentScope *isc = sc->locals; isc; isc=isc->next) {
+      if (equals(tok, isc->name)) {
+        return isc->meta;
+      }
     }
   }
   return NULL;
@@ -277,12 +297,23 @@ static Node *new_fn_node(Meta *meta) {
   return node;
 }
 
+
+static IdentScope *save_local(char *name, Meta *meta) {
+  IdentScope *isc = calloc(1, sizeof(IdentScope));
+  isc->name = name;
+  isc->meta = meta;
+  isc->next = scope->locals;
+  scope->locals = isc;
+  return isc;
+}
+
 // 存储局部值量
 static Meta *new_local(char *name) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->name = name;
   meta->next = locals;
   locals = meta;
+  save_local(name, meta);
   return meta;
 }
 
@@ -387,15 +418,20 @@ static Node *for_expr(void) {
   return node;
 }
 
+static void skip_empty(void) {
+  while (match(TK_SEMI)) {
+    printf("DEBUG: skip empty statement\n");
+    // 跳过空语句
+  }
+}
+
 // expr = "if" "(" expr ")" block ("else" block)?
 //      | "for" expr block
 //      | fn
 //      | decl
 //      | asn
 static Node *expr(void) {
-  while (match(TK_SEMI)) {
-    // 跳过空语句
-  }
+  skip_empty();
   // if
   if (match(TK_IF)) {
     return if_expr();
@@ -486,6 +522,7 @@ static Node *fn(void) {
   // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
   Meta *parent_locals= locals;
   locals = NULL;
+  enter_scope();
 
   Type param_head = {0};
   // 解析函数参数
@@ -513,6 +550,7 @@ static Node *fn(void) {
   fmeta->body = body;
   fmeta->locals = locals;
   Node *node = new_fn_node(fmeta);
+  leave_scope();
 
   // 恢复之前的局部值量
   locals = parent_locals;
@@ -548,17 +586,27 @@ static Node *block(void) {
     error_tok(&cur_tok, "expected '{'\n");
     exit(1);
   }
+
   Node head;
   Node *cur = &head;
+
+  enter_scope();
+
   while (!peek(TK_RCURLY)) {
+    skip_empty();
     cur = cur->next = expr();
+    skip_empty();
   }
   if (!match(TK_RCURLY)) {
     error_tok(&cur_tok, "expected '}'\n");
     exit(1);
   }
+
+  leave_scope();
+
   Node *node = new_node(ND_BLOCK);
   node->body = head.next;
+
   return node;
 }
 
@@ -766,7 +814,12 @@ static Node *primary(void) {
     return string();
   }
 
-  return number();
+  if (peek(TK_NUM)) {
+    return number();
+  }
+
+  error_tok(&cur_tok, "expected an expression\n");
+  return NULL;
 }
 
 static Node *array(void) {

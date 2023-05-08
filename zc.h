@@ -297,6 +297,22 @@ void set_val_by_addr(size_t addr, Value *val);
 void set_val(Meta *meta, Value *val);
 
 // =============================
+// 作用域 scope
+// =============================
+typedef struct IdentScope IdentScope;
+struct IdentScope {
+  IdentScope *next;
+  char *name;
+  Meta *meta;
+};
+
+typedef struct Scope Scope;
+struct Scope {
+  Scope *parent;
+  IdentScope *locals;
+};
+
+// =============================
 // 各个命令
 // =============================
 

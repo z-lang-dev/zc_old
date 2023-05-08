@@ -32,6 +32,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 作用域
+test 2 'let x=2; {let x =3}; x;'
+test 2 'let x=2; {let x=3}; {let y=4; x}'
+test 3 '{let x=2; {x=3}; x}'
+
 # 简单字符串
 test 97 '"a"[0]'
 test 98 '"abc"[1]'
