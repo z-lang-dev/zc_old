@@ -38,6 +38,15 @@ Type *array_of(Type *elem, size_t len) {
   return type;
 }
 
+Type *str_type(size_t len) {
+  Type *type = calloc(1, sizeof(Type));
+  type->kind = TY_STR;
+  type->size = CHAR_SIZE * len;
+  type->target = TYPE_CHAR;
+  type->len = len;
+  return type;
+}
+
 Type *fn_type(Type* ret_type) {
   Type *ty = calloc(1, sizeof(Type));
   ty->kind = TY_FN;
@@ -65,6 +74,8 @@ char *type_name(Type *type) {
       return format("%s*", type_name(type->target));
     case TY_ARRAY:
       return format("[%s|%zu]", type_name(type->target), type->len);
+    case TY_STR:
+      return format("str[%zu]", type->len);
     default:
       return "unknown";
   }
@@ -108,16 +119,18 @@ void mark_type(Node *node) {
     case ND_NOT:
       node->type = node->lhs->type;
       return;
-    case ND_ASN:
-      node->type = node->rhs->type;
+    case ND_ASN: {
       // 类型推导：如果左侧没有声明类型，就用右侧的类型
       if (!node->lhs->type) {
         node->lhs->type = node->rhs->type;
         // 如果左侧是值量的标识符，也得把类型填入到对应的meta中，这样未来其他用到这个ident的地方才能通过meta获取到类型
         if (node->lhs->kind == ND_IDENT) {
-          node->lhs->meta->type = node->rhs->type;
+          node->lhs->meta->type = node->lhs->type;
         }
       }
+      node->type = node->lhs->type;
+      return;
+    }
     case ND_NEG:
       node->type = node->rhs->type;
       return;
@@ -130,6 +143,9 @@ void mark_type(Node *node) {
       return;
     case ND_CHAR:
       node->type = TYPE_CHAR;
+      return;
+    case ND_STR:
+      node->type = node->meta->type;
       return;
     case ND_IDENT: {
       if (!node->type && node->meta && node->meta->type) {
@@ -174,7 +190,12 @@ void mark_type(Node *node) {
       }
     }
     case ND_INDEX: {
-      node->type = node->lhs->type->target;
+      if (node->lhs->type) {
+        node->type = node->lhs->type->target;
+      } else {
+        print_node(node, 0);
+        error_tok(node->token, "【错误】：数组下标操作只能用于数组类型");
+      }
       return;
     }
     default:

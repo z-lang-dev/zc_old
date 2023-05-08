@@ -34,11 +34,12 @@ char *format(char *fmt, ...);
 typedef enum {
   TK_IDENT, // 名符
   TK_NUM, // 数
+  TK_CHAR, // 字符
+  TK_STR, // 字符串
   TK_PLUS, // +
   TK_MINUS, // -
   TK_STAR, // *
   TK_SLASH, // /
-  TK_APOS, // '
   TK_ASN, // =
   TK_NOT, // !
   TK_GT, // >
@@ -93,6 +94,7 @@ void error_tok(Token *tok, char *fmt, ...);
 
 typedef enum {
   META_LET, // 标量
+  META_CONST, // 常量
   META_FN, // 函数
 } MetaKind;
 
@@ -104,6 +106,8 @@ struct Meta {
   char *name; // 名称
   Type *type; // 对应的值类型
 
+  bool is_global; 
+
   // 标量
   int offset; // 相对RBP的偏移量
 
@@ -113,12 +117,17 @@ struct Meta {
   Meta *locals; // 所有的局部值量
   size_t stack_size; // 栈的尺寸
 
+  // 字符串
+  char *str; // 字符串的内容
+  size_t len; // 字符串的长度
+
 };
 
 // 语法树节点的种类
 typedef enum {
   ND_NUM, // 整数
   ND_CHAR, // 字符
+  ND_STR, // 字符串
   ND_PLUS, // +
   ND_MINUS, // -
   ND_MUL, // *
@@ -184,6 +193,9 @@ struct Node {
   // 数组
   Node *elems; // 数组的元素
   size_t len; // 数组的长度
+
+  // 字符串
+  char *str; // 字符串的内容
 };
 
 // 打印AST节点
@@ -203,6 +215,7 @@ typedef enum {
   TY_PTR, // 指针
   TY_ARRAY, // 数组
   TY_FN, // 函数
+  TY_STR, // 字符串
 } TypeKind;
 
 struct Type {
@@ -231,6 +244,7 @@ void mark_type(Node *node);
 char *type_name(Type *type);
 
 Type *fn_type(Type* ret_type);
+Type *str_type(size_t len);
 
 Type *pointer_to(Type *target);
 Type *array_of(Type *elem, size_t len);
@@ -247,6 +261,7 @@ typedef enum {
   VAL_INT,
   VAL_CHAR,
   VAL_ARRAY,
+  VAL_STR,
 } ValueKind;
 
 // 数组类型的动态值
@@ -255,6 +270,11 @@ typedef struct {
   size_t len;
 } ValArray;
 
+typedef struct {
+  char *str;
+  size_t len;
+} Str;
+
 // 动态值：采用tagged-union模式，支持不同种类的动态值
 struct Value {
   ValueKind kind;
@@ -262,6 +282,7 @@ struct Value {
     long num;
     char cha;
     ValArray *array;
+    Str *str;
   } as;
 };
 

@@ -32,6 +32,13 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 简单字符串
+test 97 '"a"[0]'
+test 98 '"abc"[1]'
+test 99 '"abc"[2]'
+test 98 'let s="abc"; s[1]' 
+
+
 # 简单字符
 test 97 "'a'"
 test 122 "'z'"
@@ -39,8 +46,6 @@ test 65 "'A'"
 test 90 "'Z'"
 test 48 "'0'"
 test 57 "'9'"
-
-exit
 
 # 基本数组
 test 4 "let a [int|1] = [4]; a[0]"

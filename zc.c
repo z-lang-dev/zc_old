@@ -96,7 +96,11 @@ static void load(Type *type) {
     return;
   }
   // 将变量的值加载到rax寄存器中
-  emit("mov rax, [rax]");
+  if (type->size == CHAR_SIZE) {
+    emit("movsx rax, byte ptr [rax]");
+  } else {
+    emit("mov rax, [rax]");
+  }
 }
 
 // 将rax寄存器的值存入到栈顶的地址中
@@ -111,15 +115,24 @@ static void gen_addr(Node *node) {
   switch (node->kind) {
   case ND_IDENT: {
     int offset = node->meta->offset;
-    emit("lea rax, [rbp-%d]", offset);
+    if (node->meta->is_global) {
+      emit("lea rax, [rip-%d]", offset);
+    } else {
+      emit("lea rax, [rbp-%d]", offset);
+    }
     return;
   }
   case ND_DEREF: {
     gen_expr(node->rhs);
     return;
   }
+  case ND_STR: {
+    // 获取全局标签地址的方法是[rip+标签名]
+    emit("lea rax, [rip+%s]", node->meta->name);
+    return;
+  }
   default:
-    error_tok(node->token, "【错误】：不支持的类型：%d\n", node->kind);
+    error_tok(node->token, "【ZC错误】：不支持的地址类型：%d\n", node->kind);
   }
 }
 
@@ -152,6 +165,10 @@ static void gen_expr(Node *node) {
     }
     case ND_FN:
       // 这里什么都不做，而是要等当前所在的scope结束之后，再单独生成函数定义相对应的代码
+      return;
+    case ND_STR:
+      // 这里什么都不做，而是单独用gen_const()函数生成字符串常量的代码
+      gen_addr(node);
       return;
     case ND_CALL: {
       int nargs = 0;
@@ -238,7 +255,7 @@ static void gen_expr(Node *node) {
       comment("Array index.");
       // array
       Node *array_ident = node->lhs;
-      gen_addr(array_ident);
+      gen_expr(array_ident);
       push();
       // index
       gen_expr(node->rhs);
@@ -338,7 +355,11 @@ static void set_local_offsets(Meta *scope) {
   for (Meta *meta= scope->locals; meta; meta=meta->next) {
     if (meta->kind == META_LET) {
       // 注意，这里数组的size实际是(元素尺寸*len)
-      offset += meta->type->size;
+      size_t size = meta->type->size;
+      if (meta->type->kind == TY_STR) {
+        size = OFFSET_SIZE;
+      }
+      offset += size;
       meta->offset = offset;
     }
   }
@@ -379,6 +400,22 @@ static void gen_fn(Meta *meta) {
 }
 
 
+static void gen_global_data(Meta* meta) {
+  if (meta->kind == META_CONST) {
+    emit(".globl %s", meta->name);
+    label("%s", meta->name);
+
+    if (meta->type->kind == TY_ARRAY || meta->type->kind == TY_STR) {
+      for (size_t i = 0; i < meta->len; i++) {
+        emit(".byte %d", meta->str[i]);
+      }
+    } else { 
+      emit(".zero %zu", meta->type->size);
+    }
+  }
+}
+
+
 // 编译表达式源码
 void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
@@ -386,6 +423,7 @@ void compile(const char *src) {
   // 打开目标汇编文件，并写入汇编代码
   fp = fopen("app.s", "w");
   emit(".intel_syntax noprefix");
+  emit(".text");
   emit(".global main");
   label("main");
 
@@ -409,9 +447,16 @@ void compile(const char *src) {
   emit("ret");
 
   // 生成自定义函数的代码
+  bool has_global_data = false;
   for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
     if (meta->kind== META_FN) {
       gen_fn(meta);
+    } else if (meta->kind == META_CONST) {
+      if (!has_global_data) {
+        emit(".data");
+        has_global_data = true;
+      }
+      gen_global_data(meta);
     }
   }
 

@@ -38,6 +38,8 @@ char *val_to_str(Value *val) {
       buf = format("%s]", buf);
       return buf;
     }
+    case VAL_STR:
+      return format("\"%s\"", val->as.str->str);
   }
 
 }

@@ -12,6 +12,7 @@ Meta *locals;
 static const char* const NODE_KIND_NAMES[] = {
   [ND_NUM] = "NUM",
   [ND_CHAR] = "CHAR",
+  [ND_STR] = "STR",
   [ND_PLUS] = "PLUS",
   [ND_MINUS] = "MINUS",
   [ND_MUL] = "MUL",
@@ -86,6 +87,9 @@ void print_node(Node *node, int level) {
     break;
   case ND_CHAR:
     printf(" %c:%s", node->cha, type_name(node->type));
+    break;
+  case ND_STR:
+    printf(" \"%s\":%s", node->str, type_name(node->type));
     break;
   case ND_ASN:
     printf("\n");
@@ -255,14 +259,6 @@ static Node *new_unary(NodeKind kind, Node *rhs) {
   return node;
 }
 
-/*
-static Node *new_num(int val) {
-  Node *node = new_node(ND_NUM);
-  node->val = val;
-  return node;
-}
-*/
-
 static Node *new_ident_node(Meta *meta) {
   Node *node = new_node(ND_IDENT);
   node->name = meta->name;
@@ -342,6 +338,7 @@ static Node *block(void);
 static Node *ident_or_call(void);
 static Node *number(void);
 static Node *character(void);
+static Node *string(void);
 
 static Type *type(void);
 
@@ -738,6 +735,7 @@ static Node *postfix(void) {
 //         | ident_or_call
 //         | number
 //         | char
+//         | string
 static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
@@ -760,8 +758,12 @@ static Node *primary(void) {
     return ident_or_call();
   }
 
-  if (peek(TK_APOS)) {
+  if (peek(TK_CHAR)) {
     return character();
+  }
+
+  if (peek(TK_STR)) {
+    return string();
   }
 
   return number();
@@ -836,14 +838,42 @@ static Node *number(void) {
   return node;
 }
 
+static char *new_uniq_global_name(void) {
+  static int id = 0;
+  char *buf = calloc(1, 20);
+  sprintf(buf, "L..%d", id++);
+  return buf;
+}
+
+static Node *string(void) {
+  Node *node = new_node(ND_STR);
+
+  char *lit = strndup(cur_tok.pos, cur_tok.len);
+  node->str = lit;
+  node->len = cur_tok.len;
+
+  Type* type = str_type(cur_tok.len);
+  node->type = type;
+
+  Meta* meta = new_local(new_uniq_global_name());
+  meta->kind = META_CONST;
+  meta->type = type;
+  meta->str = lit;
+  meta->len = cur_tok.len;
+  meta->is_global = true;
+
+  node->meta = meta;
+  node->name = meta->name;
+  advance();
+  return node;
+}
+
 // character = "'" [a-zA-Z0-9] "'"
 static Node *character(void) {
-  expect(TK_APOS, "'");
   Node *node = new_node(ND_CHAR);
   node->cha = cur_tok.pos[0];
   node->type = TYPE_CHAR;
   advance();
-  expect(TK_APOS, "'");
   return node;
 }
 

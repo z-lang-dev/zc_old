@@ -40,11 +40,12 @@ void error_tok(Token *tok, char *fmt, ...) {
 static const char* const TOKEN_NAMES[] = {
   [TK_IDENT] = "TK_IDENT",
   [TK_NUM] = "TK_NUM",
+  [TK_CHAR] = "TK_CHAR",
+  [TK_STR] = "TK_STR",
   [TK_PLUS] = "TK_PLUS",
   [TK_MINUS] = "TK_MINUS",
   [TK_STAR] = "TK_STAR",
   [TK_SLASH] = "TK_SLASH",
-  [TK_APOS] = "TK_APOS",
   [TK_ASN] = "TK_ASN",
   [TK_GT] = "TK_GT",
   [TK_LT] = "TK_LT",
@@ -104,6 +105,11 @@ static char advance(void) {
   return lexer.current[-1];
 }
 
+static void skip(void) {
+  lexer.start = lexer.current;
+  lexer.current++;
+}
+
 // 跳过空白字符；注：由于Z语言支持省略分号，因此这里不能简单地跳过'\n'，还得考虑它用作表达式结束符的情况
 static void skip_whitespace(void) {
   for (;;) {
@@ -139,6 +145,26 @@ static Token number(void) {
     advance();
   }
   return make_token(TK_NUM);
+}
+
+static Token str(void) {
+  skip();
+  while (peek() != '"' && !is_eof()) {
+    advance();
+  }
+  Token t = make_token(TK_STR);
+  skip();
+  return t;
+}
+
+static Token cha(void) {
+  skip();
+  while (peek() != '\'' && !is_eof()) {
+    advance();
+  }
+  Token t = make_token(TK_CHAR);
+  skip();
+  return t;
 }
 
 static Token check_keyword(Token tok) {
@@ -191,6 +217,14 @@ Token next_token(void) {
     return number();
   }
 
+  if (c == '"') {
+    return str();
+  }
+  
+  if (c == '\'') {
+    return cha();
+  }
+
   // 如果是名符
   if (is_alpha(c)) {
     return ident();
@@ -205,8 +239,6 @@ Token next_token(void) {
       return make_token(TK_STAR);
     case '/':
       return make_token(TK_SLASH);
-    case '\'':
-      return make_token(TK_APOS);
     case '(':
       return make_token(TK_LPAREN);
     case ')':

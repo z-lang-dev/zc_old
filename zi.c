@@ -62,6 +62,15 @@ static Value* val_array(Node* node) {
   return val;
 }
 
+static Value* val_str(Node *node) {
+  Value *val = malloc(sizeof(Value));
+  val->kind = VAL_STR;
+  val->as.str = malloc(sizeof(Str));
+  val->as.str->len = node->len;
+  val->as.str->str = node->str;
+  return val;
+}
+
 static void help(void) {
   printf("【用法】：./zi h|v|<源码>\n");
 }
@@ -87,6 +96,8 @@ int main(int argc, char *argv[]) {
       return ret->as.cha;
     case VAL_ARRAY:
       return ret->as.array->elems[0].as.num;
+    case VAL_STR:
+      return ret->as.str->str[0];
     }
   }
   return 0;
@@ -151,6 +162,8 @@ Value *gen_expr(Node *node) {
       return val_num(node->val);
     case ND_CHAR:
       return val_char(node->cha);
+    case ND_STR:
+      return val_str(node);
     case ND_PLUS:
       // TODO: 所有的运算都应该加上类型判断，暂时只有int型所以还没处理
       return val_num(gen_expr(node->lhs)->as.num + gen_expr(node->rhs)->as.num);
@@ -184,8 +197,10 @@ Value *gen_expr(Node *node) {
     }
     case ND_IDENT:
       return get_val(node->meta);
-    case ND_ADDR:
-      return val_num(get_addr(node->rhs));
+    case ND_ADDR: {
+      size_t addr = get_addr(node->rhs);
+      return val_num(addr);
+    }
     case ND_DEREF:
       return get_deref(node->rhs);
     case ND_ARRAY: {
@@ -194,10 +209,17 @@ Value *gen_expr(Node *node) {
     case ND_INDEX: {
       Value *arr = gen_expr(node->lhs);
       Value *idx = gen_expr(node->rhs);
-      return &arr->as.array->elems[idx->as.num];
+      Node *lhs = node->lhs;
+      if (lhs->type->kind == TY_ARRAY) {
+        return &arr->as.array->elems[idx->as.num];
+      } else if (lhs->type->kind == TY_STR) {
+        return val_char(arr->as.str->str[idx->as.num]);
+      } else {
+        error_tok(node->token, "【ZI错误】：不支持的下标操作");
+      }
     }
     default:
-      error_tok(node->token, "【错误】：CodeGen 不支持的节点：");
+      error_tok(node->token, "【ZI错误】：CodeGen 不支持的节点：");
       print_node(node, 0);
       printf("\n");
       return val_num(0);
