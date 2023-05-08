@@ -1,13 +1,18 @@
-#include <stdarg.h>
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "zc.h"
 
 char *format(char *fmt, ...) {
+  char *buf;
+  size_t buflen;
+  FILE *out = open_memstream(&buf, &buflen);
+
   va_list ap;
   va_start(ap, fmt);
-  char *buf = malloc(1024);
-  vsprintf(buf, fmt, ap);
+  vfprintf(out, fmt, ap);
   va_end(ap);
+  fclose(out);
   return buf;
 }
