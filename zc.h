@@ -60,6 +60,7 @@ typedef enum {
   TK_IF, // if
   TK_ELSE, // else
   TK_FOR, // for
+  TK_USE, // use
   TK_COMMA, // ,
   TK_SEMI, // ;
   TK_AMP, // &
@@ -144,6 +145,7 @@ typedef enum {
   ND_BLOCK, // 代码块
   ND_IF, // if
   ND_FOR, // for
+  ND_USE, // use
   ND_FN, // 函数
   ND_CALL, // 函数调用
   ND_ADDR, // &, 取地址

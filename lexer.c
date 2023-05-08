@@ -65,6 +65,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_IF] = "TK_IF",
   [TK_ELSE] = "TK_ELSE",
   [TK_FOR] = "TK_FOR",
+  [TK_USE] = "TK_USE",
   [TK_COMMA] = "TK_COMMA",
   [TK_SEMI] = "TK_SEMI",
   [TK_AMP] = "TK_AMP",
@@ -169,8 +170,8 @@ static Token cha(void) {
 
 static Token check_keyword(Token tok) {
   // TODO: C没有map，暂时用双数组替代
-  static char *kw[] = {"if", "else", "for", "let", "fn"};
-  static TokenKind kw_kind[] = {TK_IF, TK_ELSE, TK_FOR, TK_LET, TK_FN};
+  static char *kw[] = {"if", "else", "for", "let", "fn", "use"};
+  static TokenKind kw_kind[] = {TK_IF, TK_ELSE, TK_FOR, TK_LET, TK_FN, TK_USE};
 
   for (size_t i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
     char* op = kw[i];

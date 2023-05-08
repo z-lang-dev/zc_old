@@ -198,6 +198,9 @@ void mark_type(Node *node) {
       }
       return;
     }
+    case ND_USE: {
+      return;
+    }
     default:
       printf("【警告】：未知的节点类型: %d，无法标记\n", node->kind);
       // 其他类型不是末端节点，不需要单独处理

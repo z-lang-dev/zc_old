@@ -133,12 +133,23 @@ Value *gen_expr(Node *node) {
       }
       return ret;
     }
+    case ND_USE: {
+      return val_num(0);
+    }
     case ND_FN: {
+      // printf("DEBUG: gen_expr:ND_FN\n");
+      // print_node(node, 0);
       set_local_offsets(node->meta->locals);
       return val_num(0);
     }
     case ND_CALL: {
       Meta *fmeta = node->meta;
+      // builtin function: puts
+      if (strcmp(fmeta->name, "puts") == 0) {
+        Value *arg = gen_expr(node->args);
+        printf("%s\n", arg->as.str->str);
+        return val_num(0);
+      }
       Meta *param = fmeta->params;
       if (param) {
         for (Node *n=node->args; n; n=n->next) {
@@ -225,6 +236,7 @@ Value *gen_expr(Node *node) {
       return val_num(0);
   }
 }
+
 
 // 解释表达式源码
 // 现在支持：1; 1+1; 2-1;

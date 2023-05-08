@@ -41,6 +41,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_BLOCK] = "BLOCK",
   [ND_IF] = "IF",
   [ND_FOR] = "FOR",
+  [ND_USE] = "USE",
   [ND_FN] = "FN",
   [ND_CALL] = "CALL",
   [ND_ADDR] = "ADDR",
@@ -172,6 +173,11 @@ void print_node(Node *node, int level) {
   }
   case ND_FOR: {
     print_node(node->cond, level+1);
+    print_node(node->body, level+1);
+    print_level(level);
+    break;
+  }
+  case ND_USE: {
     print_node(node->body, level+1);
     print_level(level);
     break;
@@ -354,6 +360,7 @@ static char *token_name(Token *tok) {
 }
 
 static Node *expr(void);
+static Node *use(void);
 static Node *decl(void);
 static Node *fn(void);
 static Node *asn(void);
@@ -396,6 +403,21 @@ Node *program(void) {
   return prog;
 }
 
+static Node *use(void) {
+  Node *node = new_node(ND_USE);
+
+  Meta *meta = new_local(token_name(&cur_tok));
+  Type* typ = fn_type(TYPE_INT);
+  meta->type = typ;
+  advance();
+  Node *path = new_ident_node(meta);
+  path->type = typ;
+  path->meta = meta;
+  node->body = path;
+  node->type = typ;
+  return node;
+}
+
 static Node *if_expr(void) {
     Node *node = new_node(ND_IF);
     node->cond = expr();
@@ -432,6 +454,10 @@ static void skip_empty(void) {
 //      | asn
 static Node *expr(void) {
   skip_empty();
+  // use
+  if (match(TK_USE)) {
+    return use();
+  }
   // if
   if (match(TK_IF)) {
     return if_expr();

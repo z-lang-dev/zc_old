@@ -19,18 +19,22 @@ test() {
     want="$1"
     input="$2"
 
-    echo "---- testing interpreter ----"
-    ./zi.exe "$input"
-    got="$?"
-
-    assert "$want" "$input" "$got"
-
     echo "---- testing compiler ----" 
     ./zc.exe "$input"
     ./app.exe
     got="$?"
     assert "$want" "$input" "$got"
+
+
+    echo "---- testing interpreter ----"
+    ./zi.exe "$input"
+    got="$?"
+
+    assert "$want" "$input" "$got"
 }
+
+# Hello
+test 1 'use puts; let s="Happy Birthday!"; puts(s); 1;'
 
 # 作用域
 test 2 'let x=2; {let x =3}; x;'

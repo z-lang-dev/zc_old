@@ -272,6 +272,8 @@ static void gen_expr(Node *node) {
       load(node->lhs->type->target);
       return;
     }
+    case ND_USE:
+      return;
     default:
       break;
   }
@@ -422,15 +424,31 @@ void compile(const char *src) {
 
   // 打开目标汇编文件，并写入汇编代码
   fp = fopen("app.s", "w");
-  emit(".intel_syntax noprefix");
-  emit(".text");
-  emit(".global main");
-  label("main");
-
 
   new_lexer(src);
   Node *prog = program();
   set_local_offsets(prog->meta);
+
+  emit(".intel_syntax noprefix");
+
+  // 生成自定义函数的代码
+  bool has_global_data = false;
+  for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
+    if (meta->kind== META_FN) {
+      gen_fn(meta);
+    } else if (meta->kind == META_CONST) {
+      if (!has_global_data) {
+        emit(".data");
+        has_global_data = true;
+      }
+      gen_global_data(meta);
+    }
+  }
+
+  emit(".text");
+  emit(".global main");
+  label("main");
+
 
   // Prologue
   emit("push rbp");
@@ -446,19 +464,7 @@ void compile(const char *src) {
   emit("pop rbp");
   emit("ret");
 
-  // 生成自定义函数的代码
-  bool has_global_data = false;
-  for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
-    if (meta->kind== META_FN) {
-      gen_fn(meta);
-    } else if (meta->kind == META_CONST) {
-      if (!has_global_data) {
-        emit(".data");
-        has_global_data = true;
-      }
-      gen_global_data(meta);
-    }
-  }
+
 
   fclose(fp);
 
