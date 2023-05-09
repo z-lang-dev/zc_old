@@ -5,20 +5,31 @@
 
 #include "zc.h"
 
-static Token cur_tok;
-static Token prev_tok;
-static Meta *locals;
+typedef struct Parser Parser;
+struct Parser {
+  Token cur_tok;
+  Token prev_tok;
+  Meta *locals;
+  Scope *global_scope;
+  Scope *cur_scope;
+};
 
-static Scope *scope = &(Scope){0};
+static Parser parser;
+
+void new_parser(void) {
+  parser.global_scope = calloc(1, sizeof(Scope));
+  parser.cur_scope = parser.global_scope;
+}
+
 
 static void enter_scope(void) {
   Scope *sc = calloc(1, sizeof(Scope));
-  sc->parent = scope;
-  scope = sc;
+  sc->parent = parser.cur_scope;
+  parser.cur_scope = sc;
 }
 
 static void leave_scope(void) {
-  scope = scope->parent;
+  parser.cur_scope = parser.cur_scope->parent;
 }
 
 static const char* const NODE_KIND_NAMES[] = {
@@ -250,7 +261,7 @@ static bool equals(Token *token, const char *str) {
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
 static Meta *find_local(Token *tok) {
   // 从最近的scope到更外层的scope依次查找
-  for (Scope *sc = scope; sc; sc = sc->parent) {
+  for (Scope *sc = parser.cur_scope; sc; sc = sc->parent) {
     for (IdentScope *isc = sc->locals; isc; isc=isc->next) {
       if (equals(tok, isc->name)) {
         return isc->meta;
@@ -261,14 +272,14 @@ static Meta *find_local(Token *tok) {
 }
 
 static void advance(void) {
-  prev_tok = cur_tok;
-  cur_tok = next_token();
+  parser.prev_tok = parser.cur_tok;
+  parser.cur_tok = next_token();
 }
 
 static Node *new_node(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
-  node->token = &cur_tok;
+  node->token = &parser.cur_tok;
   return node;
 }
 
@@ -308,8 +319,8 @@ static IdentScope *save_local(char *name, Meta *meta) {
   IdentScope *isc = calloc(1, sizeof(IdentScope));
   isc->name = name;
   isc->meta = meta;
-  isc->next = scope->locals;
-  scope->locals = isc;
+  isc->next = parser.cur_scope->locals;
+  parser.cur_scope->locals = isc;
   return isc;
 }
 
@@ -317,14 +328,14 @@ static IdentScope *save_local(char *name, Meta *meta) {
 static Meta *new_local(char *name) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->name = name;
-  meta->next = locals;
-  locals = meta;
+  meta->next = parser.locals;
+  parser.locals = meta;
   save_local(name, meta);
   return meta;
 }
 
 static bool peek(TokenKind kind) {
-  return cur_tok.kind == kind;
+  return parser.cur_tok.kind == kind;
 }
 
 static bool match(TokenKind kind) {
@@ -340,7 +351,7 @@ static bool expect(TokenKind kind, const char* expected) {
     advance();
     return true;
   }
-  error_tok(&cur_tok, "expected '%s'\n", expected);
+  error_tok(&parser.cur_tok, "expected '%s'\n", expected);
   exit(1);
 }
 
@@ -351,7 +362,7 @@ static void expect_expr_sep(void) {
   if (peek(TK_EOF)) {
     return;
   }
-  error_tok(&prev_tok, "expected ';', newline or EOF\n");
+  error_tok(&parser.prev_tok, "expected ';', newline or EOF\n");
   exit(1);
 }
 
@@ -398,7 +409,7 @@ Node *program(void) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
   meta->type= fn_type(TYPE_INT);
-  meta->locals = locals;
+  meta->locals = parser.locals;
   prog->meta= meta;
   return prog;
 }
@@ -406,7 +417,7 @@ Node *program(void) {
 static Node *use(void) {
   Node *node = new_node(ND_USE);
 
-  Meta *meta = new_local(token_name(&cur_tok));
+  Meta *meta = new_local(token_name(&parser.cur_tok));
   Type* typ = fn_type(TYPE_INT);
   meta->type = typ;
   advance();
@@ -508,7 +519,7 @@ static Type *array_type(void) {
     Node *n = number();
     typ->len = n->val;
   } else {
-    error_tok(&cur_tok, "静态数组必须指定长度\n");
+    error_tok(&parser.cur_tok, "静态数组必须指定长度\n");
   }
   expect(TK_RBRACK, "']'");
   typ->target = type();
@@ -537,32 +548,32 @@ static Type *type(void) {
   // 普通类型
   // 类型名称必然是一个TK_IDENT
   if (!peek(TK_IDENT)) {
-    error_tok(&cur_tok, "expected a type name\n");
+    error_tok(&parser.cur_tok, "expected a type name\n");
     exit(1);
   }
   // 暂时只支持int和char类型
-  Type *typ = find_type(&cur_tok);
+  Type *typ = find_type(&parser.cur_tok);
   advance();
   return typ;
 }
 
 // fn = "fn" ident ("(" param ("," param)* ")")? block
 static Node *fn(void) {
-  if (cur_tok.kind != TK_IDENT) {
-    error_tok(&cur_tok, "expected function name\n");
+  if (parser.cur_tok.kind != TK_IDENT) {
+    error_tok(&parser.cur_tok, "expected function name\n");
     exit(1);
   }
 
   // 把函数定义添加到局部名量中
-  Meta *fmeta = new_local(token_name(&cur_tok));
+  Meta *fmeta = new_local(token_name(&parser.cur_tok));
   fmeta->kind = META_FN;
 
   advance();
 
   // 保存当前的局部值量，因为函数定义中的局部值量是独立的
   // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
-  Meta *parent_locals= locals;
-  locals = NULL;
+  Meta *parent_locals= parser.locals;
+  parser.locals = NULL;
   enter_scope();
 
   Type param_head = {0};
@@ -570,18 +581,18 @@ static Node *fn(void) {
   if (match(TK_LPAREN)) {
     Type *cur_param = &param_head;
     while (!match(TK_RPAREN)) {
-      if (locals) {
+      if (parser.locals) {
         expect(TK_COMMA, "','");
       }
       // 参数名称
-      Meta *pmeta = new_local(token_name(&cur_tok));
+      Meta *pmeta = new_local(token_name(&parser.cur_tok));
       advance();
       pmeta->kind = META_LET;
       // 参数类型。在参数里类型是必须的。
       pmeta->type = type();
       cur_param = cur_param->next = copy_type(pmeta->type);
     }
-    fmeta->params = locals;
+    fmeta->params = parser.locals;
   }
 
   fmeta->type = fn_type(TYPE_INT);
@@ -589,22 +600,22 @@ static Node *fn(void) {
 
   Node *body = block();
   fmeta->body = body;
-  fmeta->locals = locals;
+  fmeta->locals = parser.locals;
   Node *node = new_fn_node(fmeta);
   leave_scope();
 
   // 恢复之前的局部值量
-  locals = parent_locals;
+  parser.locals = parent_locals;
   return node;
 }
 
 // decl = "let" ident (type)? ("=" expr)?
 static Node *decl(void) {
-  if (cur_tok.kind != TK_IDENT) {
-    error_tok(&cur_tok, "expected an identifier\n");
+  if (parser.cur_tok.kind != TK_IDENT) {
+    error_tok(&parser.cur_tok, "expected an identifier\n");
     exit(1);
   }
-  Meta *meta = new_local(token_name(&cur_tok));
+  Meta *meta = new_local(token_name(&parser.cur_tok));
   advance();
   Node *node = new_ident_node(meta);
 
@@ -624,7 +635,7 @@ static Node *decl(void) {
 // block = "{" expr* "}"
 static Node *block(void) {
   if (!match(TK_LCURLY)) {
-    error_tok(&cur_tok, "expected '{'\n");
+    error_tok(&parser.cur_tok, "expected '{'\n");
     exit(1);
   }
 
@@ -639,7 +650,7 @@ static Node *block(void) {
     skip_empty();
   }
   if (!match(TK_RCURLY)) {
-    error_tok(&cur_tok, "expected '}'\n");
+    error_tok(&parser.cur_tok, "expected '}'\n");
     exit(1);
   }
 
@@ -710,7 +721,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
 
   // ptr + ptr: Error
   if (lhs->type->target && rhs->type->target) {
-    error_tok(&cur_tok, "invalid operation");
+    error_tok(&parser.cur_tok, "invalid operation");
   }
 
   // num + ptr: convert to ptr + num
@@ -738,7 +749,7 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 
   // num - ptr: 不允许
   if (is_num(lhs->type) && rhs->type->target) {
-    error_tok(&cur_tok, "不允许的操作：num - ptr");
+    error_tok(&parser.cur_tok, "不允许的操作：num - ptr");
   }
 
   Node *node = new_binary(ND_MINUS, lhs, rhs);
@@ -829,7 +840,7 @@ static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
     if (!match(TK_RPAREN)) {
-      error_tok(&cur_tok, "expected ')'\n");
+      error_tok(&parser.cur_tok, "expected ')'\n");
       exit(1);
     }
     return node;
@@ -859,7 +870,7 @@ static Node *primary(void) {
     return number();
   }
 
-  error_tok(&cur_tok, "expected an expression\n");
+  error_tok(&parser.cur_tok, "expected an expression\n");
   return NULL;
 }
 
@@ -907,10 +918,10 @@ static Node *call(Meta *meta) {
 }
 
 static Node *ident_or_call(void) {
-  Meta *meta = find_local(&cur_tok);
+  Meta *meta = find_local(&parser.cur_tok);
 
   if (meta== NULL) {
-    error_tok(&cur_tok, "undefined identifier: %.*s\n", cur_tok.len, cur_tok.pos);
+    error_tok(&parser.cur_tok, "undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
     exit(1);
   }
 
@@ -926,7 +937,7 @@ static Node *ident_or_call(void) {
 // number = [0-9]+
 static Node *number(void) {
   Node *node = new_node(ND_NUM);
-  node->val = strtol(cur_tok.pos, NULL, 10);
+  node->val = strtol(parser.cur_tok.pos, NULL, 10);
   node->type = TYPE_INT;
   advance();
   return node;
@@ -942,18 +953,18 @@ static char *new_uniq_global_name(void) {
 static Node *string(void) {
   Node *node = new_node(ND_STR);
 
-  char *lit = strndup(cur_tok.pos, cur_tok.len);
+  char *lit = strndup(parser.cur_tok.pos, parser.cur_tok.len);
   node->str = lit;
-  node->len = cur_tok.len;
+  node->len = parser.cur_tok.len;
 
-  Type* type = str_type(cur_tok.len);
+  Type* type = str_type(parser.cur_tok.len);
   node->type = type;
 
   Meta* meta = new_local(new_uniq_global_name());
   meta->kind = META_CONST;
   meta->type = type;
   meta->str = lit;
-  meta->len = cur_tok.len;
+  meta->len = parser.cur_tok.len;
   meta->is_global = true;
 
   node->meta = meta;
@@ -965,7 +976,7 @@ static Node *string(void) {
 // character = "'" [a-zA-Z0-9] "'"
 static Node *character(void) {
   Node *node = new_node(ND_CHAR);
-  node->cha = cur_tok.pos[0];
+  node->cha = parser.cur_tok.pos[0];
   node->type = TYPE_CHAR;
   advance();
   return node;

@@ -243,6 +243,7 @@ Value *gen_expr(Node *node) {
 Value *interpret(const char *src) {
   printf("zi>> %s\n", src);
   new_lexer(src);
+  new_parser();
   Node *prog= program();
   set_local_offsets(prog->meta->locals);
   Value *r;

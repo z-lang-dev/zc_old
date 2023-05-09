@@ -93,6 +93,8 @@ void error_tok(Token *tok, char *fmt, ...);
 // 语法分析
 // =============================
 
+void new_parser(void);
+
 typedef enum {
   META_LET, // 标量
   META_CONST, // 常量

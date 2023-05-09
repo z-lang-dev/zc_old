@@ -426,6 +426,7 @@ void compile(const char *src) {
   fp = fopen("app.s", "w");
 
   new_lexer(src);
+  new_parser();
   Node *prog = program();
   set_local_offsets(prog->meta);
 
