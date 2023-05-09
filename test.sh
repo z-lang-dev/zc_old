@@ -33,6 +33,9 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 指针类型
+test 1 "let a=1;let b *int=&a;*b"
+
 # Hello
 test 1 'use puts; let s="Happy Birthday!"; puts(s); 1;'
 
@@ -57,9 +60,9 @@ test 48 "'0'"
 test 57 "'9'"
 
 # 基本数组
-test 4 "let a [int|1] = [4]; a[0]"
-test 6 "let a [int|2] = [3,6]; a[1]"
-test 9 "let a [int|3] = [3,6,9]; a[2]"
+test 4 "let a [1]int = [4]; a[0]"
+test 6 "let a [2]int = [3,6]; a[1]"
+test 9 "let a [3]int = [3,6,9]; a[2]"
 
 # 指针加减法
 test 13 "let a=13;let b=14;let p=&a; *p"

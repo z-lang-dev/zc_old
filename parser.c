@@ -500,17 +500,28 @@ static Type *find_type(Token *tok) {
 }
 
 
-static Type* array_type(void) {
+static Type *array_type(void) {
   expect(TK_LBRACK, "'['");
   Type *typ = calloc(1, sizeof(Type));
   typ->kind = TY_ARRAY;
-  typ->target = type();
-  if (match(TK_VBAR)) {
+  if (peek(TK_NUM)) {
     Node *n = number();
     typ->len = n->val;
-    typ->size = typ->len * typ->target->size;
+  } else {
+    error_tok(&cur_tok, "静态数组必须指定长度\n");
   }
   expect(TK_RBRACK, "']'");
+  typ->target = type();
+  typ->size = typ->len * typ->target->size;
+  return typ;
+}
+
+static Type *ptr_type(void) {
+  expect(TK_STAR, "'*'");
+  Type *typ = calloc(1, sizeof(Type));
+  typ->kind = TY_PTR;
+  typ->target = type();
+  typ->size = PTR_SIZE;
   return typ;
 }
 
@@ -518,6 +529,10 @@ static Type *type(void) {
   // 数组
   if (peek(TK_LBRACK)) {
     return array_type();
+  }
+  // 指针
+  if (peek(TK_STAR)) {
+    return ptr_type();
   }
   // 普通类型
   // 类型名称必然是一个TK_IDENT
