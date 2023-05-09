@@ -308,21 +308,25 @@ void set_val(Meta *meta, Value *val);
 // 作用域 scope
 // =============================
 
-// Spot是Scope中的一个视点，用来组织Scope的树状结构，Spot指向一个Meta
+// 视点（Spot）是作用域中的一个点，用来组织作用域的树状结构，Spot指向一个Meta
+// 在局部值量查找时，通过作用域遍历其中的视点来寻找值量的定义。
 struct Spot {
   Spot *next;
   char *name;
   Meta *meta;
 };
 
+// 作用域。用来限定值量的可见范围：全局作用域->模块作用域->函数/类型局部作用域->语句块形成的局部作用域，形成一个树状结构。
 struct Scope {
   Scope *parent; // 上层作用域
   Spot* spots; // 本层可见的视点
 };
 
+// 存储域，即值量存储的位置。全局存储域->函数/类型局部存储域->局部函数内部的存储域，形成一个树状结构。
+// 例如：同一个函数内部的所有局部值量都属于同一个存储域，生成汇编时会分配到同一段栈内存里。
 struct Region {
-  Region *parent;
-  Meta* locals;
+  Region *parent; // 上层存储域
+  Meta* locals; // 本层的局部变量
 };
 
 // =============================
