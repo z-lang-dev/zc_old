@@ -103,13 +103,13 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-static void set_local_offsets(Meta *locals) {
+static void set_local_offsets(Meta *fmeta) {
   int offset = 1;
   int num_locals = 0;
-  for (Meta *m = locals; m; m=m->next) {
+  for (Meta *m = fmeta->region->locals; m; m=m->next) {
     num_locals++;
   }
-  for (Meta *m = locals; m; m=m->next) {
+  for (Meta *m = fmeta->region->locals; m; m=m->next) {
     m->offset = num_locals - offset++;
   }
 }
@@ -139,7 +139,7 @@ Value *gen_expr(Node *node) {
     case ND_FN: {
       // printf("DEBUG: gen_expr:ND_FN\n");
       // print_node(node, 0);
-      set_local_offsets(node->meta->locals);
+      set_local_offsets(node->meta);
       return val_num(0);
     }
     case ND_CALL: {
@@ -245,7 +245,7 @@ Value *interpret(const char *src) {
   new_lexer(src);
   new_parser();
   Node *prog= program();
-  set_local_offsets(prog->meta->locals);
+  set_local_offsets(prog->meta);
   Value *r;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);

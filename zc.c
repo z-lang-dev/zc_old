@@ -352,9 +352,9 @@ static int align_to(int n, int align) {
   return (n + align - 1) / align * align;
 }
 
-static void set_local_offsets(Meta *scope) {
+static void set_local_offsets(Meta *fmeta) {
   int offset = 0;
-  for (Meta *meta= scope->locals; meta; meta=meta->next) {
+  for (Meta *meta= fmeta->region->locals; meta; meta=meta->next) {
     if (meta->kind == META_LET) {
       // 注意，这里数组的size实际是(元素尺寸*len)
       size_t size = meta->type->size;
@@ -365,7 +365,7 @@ static void set_local_offsets(Meta *scope) {
       meta->offset = offset;
     }
   }
-  scope->stack_size = align_to(offset, 16);
+  fmeta->stack_size = align_to(offset, 16);
 }
 
 static void gen_fn(Meta *meta) {
@@ -434,7 +434,7 @@ void compile(const char *src) {
 
   // 生成自定义函数的代码
   bool has_global_data = false;
-  for (Meta *meta= prog->meta->locals; meta; meta=meta->next) {
+  for (Meta *meta= prog->meta->region->locals; meta; meta=meta->next) {
     if (meta->kind== META_FN) {
       gen_fn(meta);
     } else if (meta->kind == META_CONST) {

@@ -15,6 +15,9 @@
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Value Value;
+typedef struct Region Region;
+typedef struct Scope Scope;
+typedef struct Spot Spot;
 
 
 // 版本号
@@ -117,7 +120,8 @@ struct Meta {
   // 函数
   Node *body; // 函数的主体
   Meta *params; // 函数的参数
-  Meta *locals; // 所有的局部值量
+  // Meta *locals; // 所有的局部值量
+  Region *region; // 对应的存储域
   size_t stack_size; // 栈的尺寸
 
   // 字符串
@@ -303,17 +307,22 @@ void set_val(Meta *meta, Value *val);
 // =============================
 // 作用域 scope
 // =============================
-typedef struct IdentScope IdentScope;
-struct IdentScope {
-  IdentScope *next;
+
+// Spot是Scope中的一个视点，用来组织Scope的树状结构，Spot指向一个Meta
+struct Spot {
+  Spot *next;
   char *name;
   Meta *meta;
 };
 
-typedef struct Scope Scope;
 struct Scope {
-  Scope *parent;
-  IdentScope *locals;
+  Scope *parent; // 上层作用域
+  Spot* spots; // 本层可见的视点
+};
+
+struct Region {
+  Region *parent;
+  Meta* locals;
 };
 
 // =============================

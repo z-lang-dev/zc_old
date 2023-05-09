@@ -9,27 +9,39 @@ typedef struct Parser Parser;
 struct Parser {
   Token cur_tok;
   Token prev_tok;
-  Meta *locals;
-  Scope *global_scope;
-  Scope *cur_scope;
+  // Meta *locals;
+  Region *global;
+  Region *region;
+  Scope *scope;
 };
 
 static Parser parser;
 
 void new_parser(void) {
-  parser.global_scope = calloc(1, sizeof(Scope));
-  parser.cur_scope = parser.global_scope;
+  parser.global = calloc(1, sizeof(Region));
+  parser.region = parser.global;
+  parser.scope = calloc(1, sizeof(Scope));
 }
 
 
 static void enter_scope(void) {
   Scope *sc = calloc(1, sizeof(Scope));
-  sc->parent = parser.cur_scope;
-  parser.cur_scope = sc;
+  sc->parent = parser.scope;
+  parser.scope = sc;
 }
 
 static void leave_scope(void) {
-  parser.cur_scope = parser.cur_scope->parent;
+  parser.scope = parser.scope->parent;
+}
+
+static void enter_region(void) {
+  Region *r = calloc(1, sizeof(Region));
+  r->parent = parser.region;
+  parser.region = r;
+}
+
+static void leave_region(void) {
+  parser.region = parser.region->parent;
 }
 
 static const char* const NODE_KIND_NAMES[] = {
@@ -261,10 +273,10 @@ static bool equals(Token *token, const char *str) {
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
 static Meta *find_local(Token *tok) {
   // 从最近的scope到更外层的scope依次查找
-  for (Scope *sc = parser.cur_scope; sc; sc = sc->parent) {
-    for (IdentScope *isc = sc->locals; isc; isc=isc->next) {
-      if (equals(tok, isc->name)) {
-        return isc->meta;
+  for (Scope *scope = parser.scope; scope; scope = scope->parent) {
+    for (Spot *s= scope->spots; s; s=s->next) {
+      if (equals(tok, s->name)) {
+        return s->meta;
       }
     }
   }
@@ -315,24 +327,33 @@ static Node *new_fn_node(Meta *meta) {
 }
 
 
-static IdentScope *save_local(char *name, Meta *meta) {
-  IdentScope *isc = calloc(1, sizeof(IdentScope));
-  isc->name = name;
-  isc->meta = meta;
-  isc->next = parser.cur_scope->locals;
-  parser.cur_scope->locals = isc;
-  return isc;
+static Spot *set_scope(char *name, Meta *meta) {
+  Spot *s = calloc(1, sizeof(Spot));
+  s->name = name;
+  s->meta = meta;
+  s->next = parser.scope->spots;
+  parser.scope->spots = s;
+  return s;
 }
 
 // 存储局部值量
 static Meta *new_local(char *name) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->name = name;
-  meta->next = parser.locals;
-  parser.locals = meta;
-  save_local(name, meta);
+  meta->next = parser.region->locals;
+  parser.region->locals = meta;
+  set_scope(name, meta);
   return meta;
 }
+
+// 存储全局值量
+// static Meta *new_global(char *name) {
+//   Meta *meta= calloc(1, sizeof(Meta));
+//   meta->name = name;
+//   meta->next = parser.global->locals;
+//   parser.global->locals = meta;
+//   return meta;
+// }
 
 static bool peek(TokenKind kind) {
   return parser.cur_tok.kind == kind;
@@ -409,7 +430,8 @@ Node *program(void) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
   meta->type= fn_type(TYPE_INT);
-  meta->locals = parser.locals;
+  // meta->locals = parser.region->locals;
+  meta->region = parser.region;
   prog->meta= meta;
   return prog;
 }
@@ -570,10 +592,7 @@ static Node *fn(void) {
 
   advance();
 
-  // 保存当前的局部值量，因为函数定义中的局部值量是独立的
-  // TODO: 当前的做法各个函数内部的locals是独立的，且不能访问全局量；未来要改为树状的scope
-  Meta *parent_locals= parser.locals;
-  parser.locals = NULL;
+  enter_region();
   enter_scope();
 
   Type param_head = {0};
@@ -581,7 +600,7 @@ static Node *fn(void) {
   if (match(TK_LPAREN)) {
     Type *cur_param = &param_head;
     while (!match(TK_RPAREN)) {
-      if (parser.locals) {
+      if (parser.region->locals != NULL) {
         expect(TK_COMMA, "','");
       }
       // 参数名称
@@ -592,7 +611,7 @@ static Node *fn(void) {
       pmeta->type = type();
       cur_param = cur_param->next = copy_type(pmeta->type);
     }
-    fmeta->params = parser.locals;
+    fmeta->params = parser.region->locals;
   }
 
   fmeta->type = fn_type(TYPE_INT);
@@ -600,12 +619,14 @@ static Node *fn(void) {
 
   Node *body = block();
   fmeta->body = body;
-  fmeta->locals = parser.locals;
+  // fmeta->locals = parser.region->locals;
+  fmeta->region = parser.region;
   Node *node = new_fn_node(fmeta);
-  leave_scope();
 
-  // 恢复之前的局部值量
-  parser.locals = parent_locals;
+  leave_scope();
+  leave_region();
+  
+
   return node;
 }
 
