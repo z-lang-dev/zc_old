@@ -1009,12 +1009,3 @@ static Node *character(void) {
   return node;
 }
 
-
-void parse(const char *src) {
-  init_lexer(src);
-  Node *prog = program();
-  for (Node *n = prog->body; n; n = n->next) {
-    print_node(n, 0);
-  }
-  printf("\n");
-}

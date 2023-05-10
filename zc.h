@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 // 指针类型的大小是8个字节。TODO：这个值可能需要根据目标平台来调整，不过现在zc输出的汇编本来就是x86_64的，因此这里写定成8也可以。
 #define PTR_SIZE 8
@@ -320,18 +322,23 @@ struct Spot {
 // 作用域。用来限定值量的可见范围：全局作用域->模块作用域->函数/类型局部作用域->语句块形成的局部作用域，形成一个树状结构。
 struct Scope {
   Scope *parent; // 上层作用域
-  Spot* spots; // 本层可见的视点
+  Spot *spots; // 本层可见的视点
 };
 
 // 存储域，即值量存储的位置。全局存储域->函数/类型局部存储域->局部函数内部的存储域，形成一个树状结构。
 // 例如：同一个函数内部的所有局部值量都属于同一个存储域，生成汇编时会分配到同一段栈内存里。
 struct Region {
   Region *parent; // 上层存储域
-  Meta* locals; // 本层的局部变量
+  Meta *locals; // 本层的局部变量
 };
 
 // =============================
-// 各个命令
+// 解释器：interp.c
+// =============================
+Value *interpret(Node *prog);
+
+// =============================
+// 命令：cmd.c
 // =============================
 
 // 词法分析
@@ -341,7 +348,7 @@ void lex(const char *src);
 void parse(const char *src);
 
 // 求值
-Value *interpret(const char *src);
+Value *eval(const char *src);
 
 // 编译
 void compile(const char *src);

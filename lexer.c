@@ -354,12 +354,3 @@ void print_token(Token t) {
   print_token_kind(t.kind);
   printf("| %.*s }\n", (int)(t.len), t.pos);
 }
-
-// 进行此法分析并打印词符
-void lex(const char *src) {
-  printf("Lexing...\n");
-  new_lexer(src);
-  for (Token t = next_token(); t.kind != TK_EOF; t = next_token()) {
-    print_token(t);
-  }
-}
