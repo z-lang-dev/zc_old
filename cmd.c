@@ -28,3 +28,16 @@ Value *eval(const char *src) {
   Value *val = interpret(prog);
   return val;;
 }
+
+// 编译源码
+void compile(const char *src) {
+  printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
+
+  init_lexer(src);
+  new_parser();
+  Node *prog = program();
+  codegen(prog);
+
+  // 调用clang将汇编编译成可执行文件
+  system("clang -o app.exe app.s");
+}
