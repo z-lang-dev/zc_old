@@ -72,6 +72,7 @@ static Value* val_str(Node *node) {
 static void set_local_offsets(Meta *fmeta) {
   int offset = 1;
   int num_locals = 0;
+  if (!fmeta->region) return;
   for (Meta *m = fmeta->region->locals; m; m=m->next) {
     num_locals++;
   }
@@ -108,6 +109,7 @@ Value *gen_expr(Node *node) {
       set_local_offsets(node->meta);
       return val_num(0);
     }
+    case ND_CTCALL: // 在解释器里并没有编译期的概念，因此CTCALL和普通的CALL是一样的
     case ND_CALL: {
       Meta *fmeta = node->meta;
       // builtin function: puts
@@ -204,10 +206,11 @@ Value *gen_expr(Node *node) {
 }
 
 
-
-
 Value *interpret(Node *prog) {
-  set_local_offsets(prog->meta);
+  // printf("DEBUG: prog kind: %u\n", prog->kind);
+  // if (prog->kind == ND_FN) {
+    set_local_offsets(prog->meta);
+  // }
   Value *r;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);

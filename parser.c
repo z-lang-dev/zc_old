@@ -67,6 +67,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_USE] = "USE",
   [ND_FN] = "FN",
   [ND_CALL] = "CALL",
+  [ND_CTCALL] = "CTCALL",
   [ND_ADDR] = "ADDR",
   [ND_DEREF] = "DEREF",
   [ND_ARRAY] = "ARRAY",
@@ -216,6 +217,21 @@ void print_node(Node *node, int level) {
     break;
   }
   case ND_CALL: {
+    printf("\n");
+    print_level(level+1);
+    printf("%s(\n", node->meta->name);
+    for (Node *n = node->args; n; n = n->next) {
+      print_node(n, level+2);
+      if (n->next) {
+        printf(", ");
+      }
+    }
+    print_level(level+1);
+    printf(")\n");
+    print_level(level);
+    break;
+  }
+  case ND_CTCALL: {
     printf("\n");
     print_level(level+1);
     printf("%s(\n", node->meta->name);
@@ -406,6 +422,7 @@ static Node *primary(void);
 static Node *array(void);
 static Node *block(void);
 static Node *ident_or_call(void);
+static Node *ct_call(void);
 static Node *number(void);
 static Node *character(void);
 static Node *string(void);
@@ -442,7 +459,6 @@ Node *program(void) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
   meta->type= fn_type(TYPE_INT);
-  // meta->locals = parser.region->locals;
   meta->region = parser.region;
   prog->meta= meta;
   return prog;
@@ -625,9 +641,9 @@ static Node *fn(void) {
 
   Node *body = block();
   fmeta->body = body;
-  // fmeta->locals = parser.region->locals;
   fmeta->region = parser.region;
   Node *node = new_fn_node(fmeta);
+  fmeta->def = node;
 
   leave_scope();
   leave_region();
@@ -860,6 +876,7 @@ static Node *postfix(void) {
 //         | array
 //         | block
 //         | ident_or_call
+//         | ct_call
 //         | number
 //         | char
 //         | string
@@ -879,6 +896,10 @@ static Node *primary(void) {
 
   if (peek(TK_LCURLY)) {
     return block();
+  }
+
+  if (peek(TK_HASH)) {
+    return ct_call();
   }
 
   if (peek(TK_IDENT)) {
@@ -949,7 +970,6 @@ static Node *ident_or_call(void) {
 
   if (meta== NULL) {
     error_tok(&parser.cur_tok, "undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
-    exit(1);
   }
 
   advance();
@@ -959,6 +979,24 @@ static Node *ident_or_call(void) {
   }
 
   return new_ident_node(meta);
+}
+
+static Node *ct_call(void) {
+  advance(); // 跳过'#'
+
+  // 函数名
+  Meta *meta = find_local(&parser.cur_tok);
+
+  if (meta== NULL) {
+    error_tok(&parser.cur_tok, "undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
+  }
+
+  advance();
+
+  // 函数调用
+  Node *node = call(meta);
+  node->kind = ND_CTCALL;
+  return node;
 }
 
 // number = [0-9]+

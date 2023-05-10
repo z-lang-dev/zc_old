@@ -4,6 +4,32 @@
 static char *arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static FILE *fp;
 
+Node *new_node_num(long val) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = ND_NUM;
+  node->val = val;
+  node->type = TYPE_INT;
+  return node;
+}
+
+Node *new_ctcall_node(Node* def, Node* ctcall) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = ND_BLOCK;
+
+  Node head;
+  Node *cur = &head;
+  cur = cur->next = def;
+  cur = cur->next = ctcall;
+  node->body = head.next;
+
+  Meta *meta= calloc(1, sizeof(Meta));
+  meta->kind= META_FN;
+  meta->type= fn_type(TYPE_INT);
+  node->meta= meta;
+ 
+  return node;
+}
+
 static void gen_expr(Node *node);
 
 static void emit(char *fmt, ...) {
@@ -147,6 +173,15 @@ static void gen_expr(Node *node) {
       comment("Calling %s()", node->meta->name);
       emit("mov rax, 0");
       emit("call %s", node->meta->name);
+      return;
+    }
+    case ND_CTCALL: {
+      Node *def = node->meta->def;
+      Node *prog = new_ctcall_node(def, node);
+      Value* val = interpret(prog);
+      long n = val->as.num;
+      Node *node = new_node_num(n);
+      gen_expr(node);
       return;
     }
     case ND_BLOCK: {

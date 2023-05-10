@@ -62,6 +62,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_LBRACK] = "TK_LBRACK",
   [TK_RBRACK] = "TK_RBRACK",
   [TK_VBAR] = "TK_VBAR", 
+  [TK_HASH] = "TK_HASH",
   [TK_LET] = "TK_LET",
   [TK_FN] = "TK_FN",
   [TK_IF] = "TK_IF",
@@ -137,7 +138,6 @@ static void new_file_lexer(const char *file) {
 }
 
 void init_lexer(const char *src) {
-  printf("DEBUG src now: %s\n", src);
   if (strcmp(src, "-") == 0 ||ends_with(src, ".z") || ends_with(src, ".zs")) {
     new_file_lexer(src);
   } else {
@@ -318,6 +318,8 @@ Token next_token(void) {
       return make_token(TK_RBRACK);
     case '|':
       return make_token(TK_VBAR);
+    case '#':
+      return make_token(TK_HASH);
     case ',':
       return make_token(TK_COMMA);
     case ';':

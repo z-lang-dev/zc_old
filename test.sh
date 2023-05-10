@@ -33,6 +33,10 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 简单的编译期脚本
+
+test 5 "fn a{5}; let b = #a(); b"
+
 # 指针类型
 test 1 "let a=1;let b *int=&a;*b"
 

@@ -12,6 +12,7 @@ void lex(const char *src) {
 // 语法分析
 void parse(const char *src) {
   init_lexer(src);
+  new_parser();
   Node *prog = program();
   for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);

@@ -61,6 +61,7 @@ typedef enum {
   TK_LBRACK, // [
   TK_RBRACK, // ]
   TK_VBAR, // |
+  TK_HASH, // #
   TK_LET, // let
   TK_FN, // fn
   TK_IF, // if
@@ -126,6 +127,7 @@ struct Meta {
   // Meta *locals; // 所有的局部值量
   Region *region; // 对应的存储域
   size_t stack_size; // 栈的尺寸
+  Node *def; // 函数的定义节点，方便编译期脚本调用
 
   // 字符串
   char *str; // 字符串的内容
@@ -157,6 +159,7 @@ typedef enum {
   ND_USE, // use
   ND_FN, // 函数
   ND_CALL, // 函数调用
+  ND_CTCALL, // 编译期调用
   ND_ADDR, // &, 取地址
   ND_DEREF, // *, 指针取值
   ND_ARRAY, // 数组字面值

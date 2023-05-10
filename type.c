@@ -76,6 +76,8 @@ char *type_name(Type *type) {
       return format("[%s|%zu]", type_name(type->target), type->len);
     case TY_STR:
       return format("str[%zu]", type->len);
+    case TY_FN:
+      return format("fn %s", type_name(type->ret_type));
     default:
       return "unknown";
   }
@@ -155,6 +157,9 @@ void mark_type(Node *node) {
     }
     case ND_CALL:
       node->type = TYPE_INT;
+      return;
+    case ND_CTCALL:
+      node->type = node->meta->type;
       return;
     case ND_ADDR: {
       // let arr int[] = {1,2,3}; let p = &arr; // p的类型是int*
