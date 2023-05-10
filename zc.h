@@ -24,9 +24,10 @@ typedef struct Spot Spot;
 static const char *ZC_VERSION = "0.0.1";
 
 // =============================
-// 工具函数
+// 工具函数: util.c
 // =============================
 char *format(char *fmt, ...);
+bool ends_with(const char *str, const char *suffix);
 
 
 // =============================
@@ -81,7 +82,7 @@ struct Token {
 };
 
 // 新建一个词法分析器，接收src源码 
-void new_lexer(const char *src);
+void init_lexer(const char *src);
 
 // 解析并获取下一个词符
 Token next_token(void);

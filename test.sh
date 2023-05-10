@@ -20,14 +20,14 @@ test() {
     input="$2"
 
     echo "---- testing compiler ----" 
-    ./zc.exe "$input"
+    echo "$input" | ./zc.exe -
     ./app.exe
     got="$?"
     assert "$want" "$input" "$got"
 
 
     echo "---- testing interpreter ----"
-    ./zi.exe "$input"
+    echo "$input" | ./zi.exe -
     got="$?"
 
     assert "$want" "$input" "$got"

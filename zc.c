@@ -425,7 +425,7 @@ void compile(const char *src) {
   // 打开目标汇编文件，并写入汇编代码
   fp = fopen("app.s", "w");
 
-  new_lexer(src);
+  init_lexer(src);
   new_parser();
   Node *prog = program();
   set_local_offsets(prog->meta);

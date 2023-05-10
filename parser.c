@@ -412,16 +412,28 @@ static Node *string(void);
 
 static Type *type(void);
 
+static void skip_empty(void) {
+  while (match(TK_SEMI)) {
+    printf("DEBUG: skip empty SEMI statement\n");
+    // 跳过空语句
+  }
+  while (match(TK_NLINE)) {
+    printf("DEBUG: skip empty NEWLINE statement\n");
+  }
+}
+
 // program = expr*
 Node *program(void) {
   advance();
   Node head;
   Node *cur = &head;
   while (!peek(TK_EOF)) {
+    skip_empty();
     cur = cur->next = expr();
     // 表达式后面要有分号、换行或EOF
     expect_expr_sep();
     mark_type(cur);
+    skip_empty();
   }
 
   Node *prog = new_node(ND_BLOCK);
@@ -473,12 +485,6 @@ static Node *for_expr(void) {
   return node;
 }
 
-static void skip_empty(void) {
-  while (match(TK_SEMI)) {
-    printf("DEBUG: skip empty statement\n");
-    // 跳过空语句
-  }
-}
 
 // expr = "if" "(" expr ")" block ("else" block)?
 //      | "for" expr block
@@ -1005,7 +1011,7 @@ static Node *character(void) {
 
 
 void parse(const char *src) {
-  new_lexer(src);
+  init_lexer(src);
   Node *prog = program();
   for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);

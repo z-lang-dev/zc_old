@@ -242,7 +242,7 @@ Value *gen_expr(Node *node) {
 // 现在支持：1; 1+1; 2-1;
 Value *interpret(const char *src) {
   printf("zi>> %s\n", src);
-  new_lexer(src);
+  init_lexer(src);
   new_parser();
   Node *prog= program();
   set_local_offsets(prog->meta);

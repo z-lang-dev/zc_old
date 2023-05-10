@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -8,9 +9,10 @@
 // 词法分析器
 typedef struct Lexer Lexer;
 struct Lexer {
-  const char* line;
+  const char* file; // 文件名
+  const char* line; // 行号
   const char* start; // 当前解析位置的开始位置，每解析完一个词符之后会更新。
-  const char* current;  // 解析过程中的当前位置。一个词符解析完成时，current-start 就是词符的长度。
+  const char* current; // 解析过程中的当前位置。一个词符解析完成时，current-start 就是词符的长度。
 };
 
 Lexer lexer;
@@ -74,11 +76,73 @@ static const char* const TOKEN_NAMES[] = {
   [TK_ERROR] = "TK_ERROR",
 };
 
+
 // 初始化词法分析器
-void new_lexer(const char *src) {
+static void new_lexer(const char *src) {
   lexer.start = src;
   lexer.current = src;
   lexer.line = src;
+}
+
+static void new_file_lexer(const char *file) {
+  FILE *fp;
+
+  // 如果文件名是"-"，则从标准输入读取
+  if (strcmp(file, "-") == 0) {
+    fp = stdin;
+  } else {
+    fp = fopen(file, "r");
+    if (!fp) {
+      error("【Lexer错误】：无法打开文件：%s\n", file);
+    }
+  }
+
+  char *buf;
+  size_t len;
+  FILE *out = open_memstream(&buf, &len);
+
+  for (;;) {
+    char buf2[4096];
+    int n = fread(buf2, 1, sizeof(buf2), fp);
+    if (n == 0) {
+      break;
+    }
+    fwrite(buf2, 1, n, out);
+  }
+
+  if (fp != stdin) {
+    fclose(fp);
+  }
+
+  fflush(out);
+  if (len == 0 || buf[len - 1] != '\n') {
+    fputc('\n', out);
+  }
+  fputc('\0', out);
+  fclose(out);
+
+  new_lexer(buf);
+  lexer.file = file;
+
+  // 读取整个文件
+  // fseek(fp, 0, SEEK_END);
+  // long size = ftell(fp);
+  // fseek(fp, 0, SEEK_SET);
+  // char *src = malloc(size + 1);
+  // fread(src, 1, size, fp);
+  // src[size] = '\0';
+  // fclose(fp);
+  // new_lexer(src);
+  // lexer.file = file;
+}
+
+void init_lexer(const char *src) {
+  printf("DEBUG src now: %s\n", src);
+  if (strcmp(src, "-") == 0 ||ends_with(src, ".z") || ends_with(src, ".zs")) {
+    new_file_lexer(src);
+  } else {
+    new_lexer(src);
+  }
 }
 
 // 判断是否到源码末尾
