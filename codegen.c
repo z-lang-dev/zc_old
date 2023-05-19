@@ -423,9 +423,15 @@ void codegen(Node *prog) {
 
   // 生成自定义函数的代码
   bool has_global_data = false;
+  Meta* mainFn = NULL;
   for (Meta *meta= prog->meta->region->locals; meta; meta=meta->next) {
     if (meta->kind== META_FN) {
-      gen_fn(meta);
+      if (strcmp(meta->name, "main") == 0) {
+        printf("DEBUG: Got main definition.\n");
+        mainFn = meta;
+      } else {
+        gen_fn(meta);
+      }
     } else if (meta->kind == META_CONST) {
       if (!has_global_data) {
         emit(".data");
@@ -447,6 +453,13 @@ void codegen(Node *prog) {
 
   for (Node *n = prog->body; n; n = n->next) {
     gen_expr(n);
+  }
+
+  // 如果有main定义，在这里生成
+  if (mainFn) {
+    for (Node *n = mainFn->body; n; n = n->next) {
+      gen_expr(n);
+    }
   }
 
   // Epilogue
