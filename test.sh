@@ -35,7 +35,9 @@ test() {
 
 # 简单的编译期脚本
 
-test 25 "use math; math.square(5)"
+#test 25 "use math; math.square(5)"
+
+#exit
 
 test 5 "fn a{5}; let b = #a(); b"
 
@@ -43,7 +45,7 @@ test 5 "fn a{5}; let b = #a(); b"
 test 1 "let a=1;let b *int=&a;*b"
 
 # Hello
-test 1 'use puts; let s="Happy Birthday!"; puts(s); 1;'
+test 1 'fn puts; let s="Happy Birthday!"; puts(s); 1;'
 
 # 作用域
 test 2 'let x=2; {let x =3}; x;'

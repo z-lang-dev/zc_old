@@ -118,6 +118,7 @@ struct Meta {
   Type *type; // 对应的值类型
 
   bool is_global; 
+  bool is_decl; // 是否只声明
 
   // 标量
   int offset; // 相对RBP的偏移量
@@ -213,8 +214,6 @@ struct Node {
   // 字符串
   char *str; // 字符串的内容
 
-  // 路径
-  Node *sub; // 子节点
 };
 
 // 打印AST节点

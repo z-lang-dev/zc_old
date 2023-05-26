@@ -276,13 +276,10 @@ void print_node(Node *node, int level) {
     break;
   }
   case ND_PATH: {
-    printf("%s", node->name);
-    Node *sub = node->sub;
-    while (sub) {
-      printf(".");
-      printf(sub->name);
-      sub = sub->sub;
-    }
+    print_node(node->lhs, level);
+    Node *sub = node->rhs;
+    printf(".");
+    print_node(sub, level);
     print_level(level);
     break;
   }
@@ -479,6 +476,7 @@ Node *program(void) {
 static Node *use(void) {
   Node *node = new_node(ND_USE);
 
+/*
   Meta *meta = new_local(token_name(&parser.cur_tok));
   Type* typ = fn_type(TYPE_INT);
   meta->type = typ;
@@ -488,6 +486,7 @@ static Node *use(void) {
   path->meta = meta;
   node->body = path;
   node->type = typ;
+*/
   return node;
 }
 
@@ -623,7 +622,6 @@ static Node *fn(void) {
   // 把函数定义添加到局部名量中
   Meta *fmeta = new_local(token_name(&parser.cur_tok));
   fmeta->kind = META_FN;
-
   advance();
 
   enter_region();
@@ -651,15 +649,19 @@ static Node *fn(void) {
   fmeta->type = fn_type(TYPE_INT);
   fmeta->type->param_types = param_head.next;
 
-  Node *body = block();
-  fmeta->body = body;
+  if (peek(TK_LCURLY)) {
+    Node *body = block();
+    fmeta->body = body;
+  } else {
+    fmeta->is_decl = true;
+  }
+
   fmeta->region = parser.region;
   Node *node = new_fn_node(fmeta);
   fmeta->def = node;
 
   leave_scope();
   leave_region();
-  
 
   return node;
 }
@@ -869,6 +871,11 @@ static Node *unary(void) {
     return new_unary(ND_DEREF, unary());
   }
   return postfix();
+}
+
+static Node *new_path(Node *parent) {
+  Node *node = new_binary(ND_PATH, parent, primary());
+  return node;
 }
 
 // postfix = primary ("[" expr "]" | "." ident)*

@@ -430,6 +430,10 @@ void codegen(Node *prog) {
         printf("DEBUG: Got main definition.\n");
         mainFn = meta;
       } else {
+        // 单独声明没有定义的话，就不处理了。
+        if (meta->is_decl) {
+          continue;
+        }
         gen_fn(meta);
       }
     } else if (meta->kind == META_CONST) {
