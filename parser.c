@@ -5,51 +5,33 @@
 
 #include "zc.h"
 
-typedef struct Parser Parser;
-struct Parser {
-  Token cur_tok;
-  Token prev_tok;
-  // Meta *locals;
-  Region *global;
-  Region *region;
-  Scope *scope;
-  Lexer *lexer;
-};
-
-static Parser parser;
-
-void new_parser(Lexer *lexer) {
-  parser.global = calloc(1, sizeof(Region));
-  parser.region = parser.global;
-  parser.scope = calloc(1, sizeof(Scope));
-  parser.lexer = lexer;
+Parser *new_parser(Lexer *lexer) {
+  Parser *parser = calloc(1, sizeof(Parser));
+  parser->global = calloc(1, sizeof(Region));
+  parser->region = parser->global;
+  parser->scope = calloc(1, sizeof(Scope));
+  parser->lexer = lexer;
+  return parser;
 }
 
-static void error_cur_tok(char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  error_tok(&parser.cur_tok, fmt, ap);
-}
-
-
-static void enter_scope(void) {
+static void enter_scope(Parser *p) {
   Scope *sc = calloc(1, sizeof(Scope));
-  sc->parent = parser.scope;
-  parser.scope = sc;
+  sc->parent = p->scope;
+  p->scope = sc;
 }
 
-static void leave_scope(void) {
-  parser.scope = parser.scope->parent;
+static void leave_scope(Parser *p) {
+  p->scope = p->scope->parent;
 }
 
-static void enter_region(void) {
+static void enter_region(Parser *p) {
   Region *r = calloc(1, sizeof(Region));
-  r->parent = parser.region;
-  parser.region = r;
+  r->parent = p->region;
+  p->region = r;
 }
 
-static void leave_region(void) {
-  parser.region = parser.region->parent;
+static void leave_region(Parser *p) {
+  p->region = p->region->parent;
 }
 
 static const char* const NODE_KIND_NAMES[] = {
@@ -304,9 +286,9 @@ static bool equals(Token *token, const char *str) {
 
 // 查看名符是否已经在locals中记录了。包括所有的量名符和函数名符。
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
-static Meta *find_local(Token *tok) {
+static Meta *find_local(Parser *p, Token *tok) {
   // 从最近的scope到更外层的scope依次查找
-  for (Scope *scope = parser.scope; scope; scope = scope->parent) {
+  for (Scope *scope = p->scope; scope; scope = scope->parent) {
     for (Spot *s= scope->spots; s; s=s->next) {
       if (equals(tok, s->name)) {
         return s->meta;
@@ -316,40 +298,40 @@ static Meta *find_local(Token *tok) {
   return NULL;
 }
 
-static void advance(void) {
-  parser.prev_tok = parser.cur_tok;
-  parser.cur_tok = next_token(parser.lexer);
+static void advance(Parser *p) {
+  p->prev_tok = p->cur_tok;
+  p->cur_tok = next_token(p->lexer);
 }
 
-static Node *new_node(NodeKind kind) {
+static Node *new_node(Parser *p, NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
-  node->token = &parser.cur_tok;
+  node->token = &p->cur_tok;
   return node;
 }
 
-static Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
-  Node *node = new_node(kind);
+static Node *new_binary(Parser *p, NodeKind kind, Node *lhs, Node *rhs) {
+  Node *node = new_node(p, kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
-static Node *new_unary(NodeKind kind, Node *rhs) {
-  Node *node = new_node(kind);
+static Node *new_unary(Parser *p, NodeKind kind, Node *rhs) {
+  Node *node = new_node(p, kind);
   node->rhs = rhs;
   return node;
 }
 
-static Node *new_ident_node(Meta *meta) {
-  Node *node = new_node(ND_IDENT);
+static Node *new_ident_node(Parser *p, Meta *meta) {
+  Node *node = new_node(p, ND_IDENT);
   node->name = meta->name;
   node->meta = meta;
   return node;
 }
 
-static Node *new_fn_node(Meta *meta) {
-  Node *node = new_node(ND_FN);
+static Node *new_fn_node(Parser *p, Meta *meta) {
+  Node *node = new_node(p, ND_FN);
   node->name = meta->name;
   node->meta = meta;
   // 注意：这里没有设置node->body = meta->body，
@@ -360,63 +342,54 @@ static Node *new_fn_node(Meta *meta) {
 }
 
 
-static Spot *set_scope(char *name, Meta *meta) {
+static Spot *set_scope(Parser *p, char *name, Meta *meta) {
   Spot *s = calloc(1, sizeof(Spot));
   s->name = name;
   s->meta = meta;
-  s->next = parser.scope->spots;
-  parser.scope->spots = s;
+  s->next = p->scope->spots;
+  p->scope->spots = s;
   return s;
 }
 
 // 存储局部值量
-static Meta *new_local(char *name) {
+static Meta *new_local(Parser *p, char *name) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->name = name;
-  meta->next = parser.region->locals;
-  parser.region->locals = meta;
-  set_scope(name, meta);
+  meta->next = p->region->locals;
+  p->region->locals = meta;
+  set_scope(p, name, meta);
   return meta;
 }
 
-// 存储全局值量
-// static Meta *new_global(char *name) {
-//   Meta *meta= calloc(1, sizeof(Meta));
-//   meta->name = name;
-//   meta->next = parser.global->locals;
-//   parser.global->locals = meta;
-//   return meta;
-// }
-
-static bool peek(TokenKind kind) {
-  return parser.cur_tok.kind == kind;
+static bool peek(Parser *p, TokenKind kind) {
+  return p->cur_tok.kind == kind;
 }
 
-static bool match(TokenKind kind) {
-  if (peek(kind)) {
-    advance();
+static bool match(Parser *p, TokenKind kind) {
+  if (peek(p, kind)) {
+    advance(p);
     return true;
   }
   return false;
 }
 
-static bool expect(TokenKind kind, const char* expected) {
-  if (peek(kind)) {
-    advance();
+static bool expect(Parser *p, TokenKind kind, const char* expected) {
+  if (peek(p, kind)) {
+    advance(p);
     return true;
   }
-  error_cur_tok("expected '%s'\n", expected);
+  error_tok(&p->cur_tok, "expected '%s'\n", expected);
   exit(1);
 }
 
-static void expect_expr_sep(void) {
-  if (match(TK_NLINE) || match(TK_SEMI)) {
+static void expect_expr_sep(Parser *p) {
+  if (match(p, TK_NLINE) || match(p, TK_SEMI)) {
     return;
   }
-  if (peek(TK_EOF)) {
+  if (peek(p, TK_EOF)) {
     return;
   }
-  error_tok(&parser.prev_tok, "expected ';', newline or EOF\n");
+  error_tok(&p->prev_tok, "expected ';', newline or EOF\n");
   exit(1);
 }
 
@@ -424,79 +397,79 @@ static char *token_name(Token *tok) {
   return strndup(tok->pos, tok->len);
 }
 
-static Node *expr(void);
-static Node *use(void);
-static Node *decl(void);
-static Node *fn(void);
-static Node *asn(void);
-static Node *equality(void);
-static Node *relational(void);
-static Node *add(void);
-static Node *mul(void);
-static Node *postfix(void);
-static Node *unary(void);
-static Node *primary(void);
-static Node *array(void);
-static Node *block(void);
-static Node *ident_or_call(void);
-static Node *ct_call(void);
-static Node *number(void);
-static Node *character(void);
-static Node *string(void);
+static Node *expr(Parser *p);
+static Node *use(Parser *p);
+static Node *decl(Parser *p);
+static Node *fn(Parser *p);
+static Node *asn(Parser *p);
+static Node *equality(Parser *p);
+static Node *relational(Parser *p);
+static Node *add(Parser *p);
+static Node *mul(Parser *p);
+static Node *postfix(Parser *p);
+static Node *unary(Parser *p);
+static Node *primary(Parser *p);
+static Node *array(Parser *p);
+static Node *block(Parser *p);
+static Node *ident_or_call(Parser *p);
+static Node *ct_call(Parser *p);
+static Node *number(Parser *p);
+static Node *character(Parser *p);
+static Node *string(Parser *p);
 
-static Type *type(void);
+static Type *type(Parser *p);
 
-static void skip_empty(void) {
-  while (match(TK_SEMI)) {
+static void skip_empty(Parser *p) {
+  while (match(p, TK_SEMI)) {
     printf("DEBUG: skip empty SEMI statement\n");
     // 跳过空语句
   }
-  while (match(TK_NLINE)) {
+  while (match(p, TK_NLINE)) {
     printf("DEBUG: skip empty NEWLINE statement\n");
   }
 }
 
 // TODO: 当前模块名称只支持一个单词，未来需要扩充为层级的"a.b.c"形式
-Node *box(const char* name) {
-  Node *node = new_node(ND_BOX);
+Node *box(Parser *p, const char* name) {
+  Node *node = new_node(p, ND_BOX);
   node->name = name;
-  node->body = program();
+  node->body = program(p);
   return node;
 }
 
 // program = expr*
-Node *program(void) {
-  advance();
+Node *program(Parser *p) {
+  advance(p);;
   Node head;
   Node *cur = &head;
-  while (!peek(TK_EOF)) {
-    skip_empty();
-    cur = cur->next = expr();
+  while (!peek(p, TK_EOF)) {
+    skip_empty(p);
+    cur = cur->next = expr(p);
     // 表达式后面要有分号、换行或EOF
-    expect_expr_sep();
+    expect_expr_sep(p);
     mark_type(cur);
-    skip_empty();
+    skip_empty(p);
   }
 
-  Node *prog = new_node(ND_BLOCK);
+  Node *prog = new_node(p, ND_BLOCK);
   prog->body = head.next;
   // prog对应的meta，本质是一个scope
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
   meta->type= fn_type(TYPE_INT);
-  meta->region = parser.region;
+  meta->region = p->region;
   prog->meta= meta;
   return prog;
 }
 
-static Node *use(void) {
-  Node *node = new_node(ND_USE);
+static Node *use(Parser *p) {
+  Node *node = new_node(p, ND_USE);
 
 /*
-  Meta *meta = new_local(token_name(&parser.cur_tok));
+  Meta *meta = new_local(token_name(&p->cur_tok));
   Type* typ = fn_type(TYPE_INT);
   meta->type = typ;
-  advance();
+  advance(p);;
   Node *path = new_ident_node(meta);
   path->type = typ;
   path->meta = meta;
@@ -506,25 +479,25 @@ static Node *use(void) {
   return node;
 }
 
-static Node *if_expr(void) {
-    Node *node = new_node(ND_IF);
-    node->cond = expr();
-    node->then = block();
-    if (match(TK_ELSE)) {
-      if (match(TK_IF)) {
-        node->els = if_expr();
+static Node *if_expr(Parser *p) {
+    Node *node = new_node(p, ND_IF);
+    node->cond = expr(p);
+    node->then = block(p);
+    if (match(p, TK_ELSE)) {
+      if (match(p, TK_IF)) {
+        node->els = if_expr(p);
       } else {
-        node->els = block();
+        node->els = block(p);
       }
     }
     return node;
 }
 
-static Node *for_expr(void) {
-  Node *node = new_node(ND_FOR);
+static Node *for_expr(Parser *p) {
+  Node *node = new_node(p, ND_FOR);
   // TODO: 这里的条件应当不允许赋值等操作，而只允许返回值为bool的表达式
-  node->cond = expr();
-  node->body = block();
+  node->cond = expr(p);
+  node->body = block(p);
   return node;
 }
 
@@ -534,34 +507,34 @@ static Node *for_expr(void) {
 //      | fn
 //      | decl
 //      | asn
-static Node *expr(void) {
-  skip_empty();
+static Node *expr(Parser *p) {
+  skip_empty(p);
   // use
-  if (match(TK_USE)) {
-    return use();
+  if (match(p, TK_USE)) {
+    return use(p);
   }
   // if
-  if (match(TK_IF)) {
-    return if_expr();
+  if (match(p, TK_IF)) {
+    return if_expr(p);
   }
 
   // for
-  if (match(TK_FOR)) {
-    return for_expr();
+  if (match(p, TK_FOR)) {
+    return for_expr(p);
   }
 
   // fn
-  if (match(TK_FN)) {
-    return fn();
+  if (match(p, TK_FN)) {
+    return fn(p);
   }
 
   // decl
-  if (match(TK_LET)) {
-    return decl();
+  if (match(p, TK_LET)) {
+    return decl(p);
   }
 
   // asn
-  return asn();
+  return asn(p);
 }
 
 // TODO: 现在还没有实现自定义类型，因此只需要直接判断类型的名符是否符合预定义的这几种类型即可
@@ -582,176 +555,176 @@ static Type *find_type(Token *tok) {
 }
 
 
-static Type *array_type(void) {
-  expect(TK_LBRACK, "'['");
+static Type *array_type(Parser *p) {
+  expect(p, TK_LBRACK, "'['");
   Type *typ = calloc(1, sizeof(Type));
   typ->kind = TY_ARRAY;
-  if (peek(TK_NUM)) {
-    Node *n = number();
+  if (peek(p, TK_NUM)) {
+    Node *n = number(p);
     typ->len = n->val;
   } else {
-    error_cur_tok("静态数组必须指定长度\n");
+    error_tok(&p->cur_tok, "静态数组必须指定长度\n");
   }
-  expect(TK_RBRACK, "']'");
-  typ->target = type();
+  expect(p, TK_RBRACK, "']'");
+  typ->target = type(p);
   typ->size = typ->len * typ->target->size;
   return typ;
 }
 
-static Type *ptr_type(void) {
-  expect(TK_STAR, "'*'");
+static Type *ptr_type(Parser *p) {
+  expect(p, TK_STAR, "'*'");
   Type *typ = calloc(1, sizeof(Type));
   typ->kind = TY_PTR;
-  typ->target = type();
+  typ->target = type(p);
   typ->size = PTR_SIZE;
   return typ;
 }
 
-static Type *type(void) {
+static Type *type(Parser *p) {
   // 数组
-  if (peek(TK_LBRACK)) {
-    return array_type();
+  if (peek(p, TK_LBRACK)) {
+    return array_type(p);
   }
   // 指针
-  if (peek(TK_STAR)) {
-    return ptr_type();
+  if (peek(p, TK_STAR)) {
+    return ptr_type(p);
   }
   // 普通类型
   // 类型名称必然是一个TK_IDENT
-  if (!peek(TK_IDENT)) {
-    error_cur_tok("expected a type name\n");
+  if (!peek(p, TK_IDENT)) {
+    error_tok(&p->cur_tok, "expected a type name\n");
     exit(1);
   }
   // 暂时只支持int和char类型
-  Type *typ = find_type(&parser.cur_tok);
-  advance();
+  Type *typ = find_type(&p->cur_tok);
+  advance(p);;
   return typ;
 }
 
 // fn = "fn" ident ("(" param ("," param)* ")")? block
-static Node *fn(void) {
-  if (parser.cur_tok.kind != TK_IDENT) {
-    error_cur_tok("expected function name\n");
+static Node *fn(Parser *p) {
+  if (p->cur_tok.kind != TK_IDENT) {
+    error_tok(&p->cur_tok, "expected function name\n");
     exit(1);
   }
 
   // 把函数定义添加到局部名量中
-  Meta *fmeta = new_local(token_name(&parser.cur_tok));
+  Meta *fmeta = new_local(p, token_name(&p->cur_tok));
   fmeta->kind = META_FN;
-  advance();
+  advance(p);;
 
-  enter_region();
-  enter_scope();
+  enter_region(p);
+  enter_scope(p);
 
   Type param_head = {0};
   // 解析函数参数
-  if (match(TK_LPAREN)) {
+  if (match(p, TK_LPAREN)) {
     Type *cur_param = &param_head;
-    while (!match(TK_RPAREN)) {
-      if (parser.region->locals != NULL) {
-        expect(TK_COMMA, "','");
+    while (!match(p, TK_RPAREN)) {
+      if (p->region->locals != NULL) {
+        expect(p, TK_COMMA, "','");
       }
       // 参数名称
-      Meta *pmeta = new_local(token_name(&parser.cur_tok));
-      advance();
+      Meta *pmeta = new_local(p, token_name(&p->cur_tok));
+      advance(p);;
       pmeta->kind = META_LET;
       // 参数类型。在参数里类型是必须的。
-      pmeta->type = type();
+      pmeta->type = type(p);
       cur_param = cur_param->next = copy_type(pmeta->type);
     }
-    fmeta->params = parser.region->locals;
+    fmeta->params = p->region->locals;
   }
 
   fmeta->type = fn_type(TYPE_INT);
   fmeta->type->param_types = param_head.next;
 
-  if (peek(TK_LCURLY)) {
-    Node *body = block();
+  if (peek(p, TK_LCURLY)) {
+    Node *body = block(p);
     fmeta->body = body;
   } else {
     fmeta->is_decl = true;
   }
 
-  fmeta->region = parser.region;
-  Node *node = new_fn_node(fmeta);
+  fmeta->region = p->region;
+  Node *node = new_fn_node(p, fmeta);
   fmeta->def = node;
 
-  leave_scope();
-  leave_region();
+  leave_scope(p);
+  leave_region(p);
 
   return node;
 }
 
 // decl = "let" ident (type)? ("=" expr)?
-static Node *decl(void) {
-  if (parser.cur_tok.kind != TK_IDENT) {
-    error_cur_tok("expected an identifier\n");
+static Node *decl(Parser *p) {
+  if (p->cur_tok.kind != TK_IDENT) {
+    error_tok(&p->cur_tok, "expected an identifier\n");
     exit(1);
   }
-  Meta *meta = new_local(token_name(&parser.cur_tok));
-  advance();
-  Node *node = new_ident_node(meta);
+  Meta *meta = new_local(p, token_name(&p->cur_tok));
+  advance(p);;
+  Node *node = new_ident_node(p, meta);
 
   // 解析类型
-  if (!peek(TK_ASN)) {
-    meta->type = type();
+  if (!peek(p, TK_ASN)) {
+    meta->type = type(p);
   }
 
   // 解析赋值
-  if (match(TK_ASN)) {
-    node = new_binary(ND_ASN, node, expr());
+  if (match(p, TK_ASN)) {
+    node = new_binary(p, ND_ASN, node, expr(p));
   }
   return node;
 }
 
 
 // block = "{" expr* "}"
-static Node *block(void) {
-  if (!match(TK_LCURLY)) {
-    error_cur_tok("expected '{'\n");
+static Node *block(Parser *p) {
+  if (!match(p, TK_LCURLY)) {
+    error_tok(&p->cur_tok, "expected '{'\n");
     exit(1);
   }
 
   Node head;
   Node *cur = &head;
 
-  enter_scope();
+  enter_scope(p);
 
-  while (!peek(TK_RCURLY)) {
-    skip_empty();
-    cur = cur->next = expr();
-    skip_empty();
+  while (!peek(p, TK_RCURLY)) {
+    skip_empty(p);
+    cur = cur->next = expr(p);
+    skip_empty(p);
   }
-  if (!match(TK_RCURLY)) {
-    error_cur_tok("expected '}'\n");
+  if (!match(p, TK_RCURLY)) {
+    error_tok(&p->cur_tok, "expected '}'\n");
     exit(1);
   }
 
-  leave_scope();
+  leave_scope(p);
 
-  Node *node = new_node(ND_BLOCK);
+  Node *node = new_node(p, ND_BLOCK);
   node->body = head.next;
 
   return node;
 }
 
 // asn = equality ("=" asn)?
-static Node *asn(void) {
-  Node *node = equality();
-  if (match(TK_ASN)) {
-    node = new_binary(ND_ASN, node, asn());
+static Node *asn(Parser *p) {
+  Node *node = equality(p);
+  if (match(p, TK_ASN)) {
+    node = new_binary(p, ND_ASN, node, asn(p));
   }
   return node;
 }
 
 // equality = relational ("==" relational | "!=" relational)*
-static Node *equality(void) {
-  Node *node = relational();
+static Node *equality(Parser *p) {
+  Node *node = relational(p);
   for (;;) {
-    if (match(TK_EQ)) {
-      node = new_binary(ND_EQ, node, relational());
-    } else if (match(TK_NE)) {
-      node = new_binary(ND_NE, node, relational());
+    if (match(p, TK_EQ)) {
+      node = new_binary(p, ND_EQ, node, relational(p));
+    } else if (match(p, TK_NE)) {
+      node = new_binary(p, ND_NE, node, relational(p));
     } else {
       return node;
     }
@@ -759,24 +732,24 @@ static Node *equality(void) {
 }
 
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-static Node *relational(void) {
-  Node *node = add();
+static Node *relational(Parser *p) {
+  Node *node = add(p);
   for (;;) {
-    if (match(TK_LT)) {
-      node = new_binary(ND_LT, node, add());
-    } else if (match(TK_LE)) {
-      node = new_binary(ND_LE, node, add());
-    } else if (match(TK_GT)) {
-      node = new_binary(ND_LT, add(), node);
-    } else if (match(TK_GE)) {
-      node = new_binary(ND_LE, add(), node);
+    if (match(p, TK_LT)) {
+      node = new_binary(p, ND_LT, node, add(p));
+    } else if (match(p, TK_LE)) {
+      node = new_binary(p, ND_LE, node, add(p));
+    } else if (match(p, TK_GT)) {
+      node = new_binary(p, ND_LT, add(p), node);
+    } else if (match(p, TK_GE)) {
+      node = new_binary(p, ND_LE, add(p), node);
     } else {
       return node;
     }
   }
 }
 
-static Node *new_add(Node *lhs, Node *rhs) {
+static Node *new_add(Parser *p, Node *lhs, Node *rhs) {
   mark_type(lhs);
   mark_type(rhs);
 
@@ -789,12 +762,12 @@ static Node *new_add(Node *lhs, Node *rhs) {
 
   // num + num
   if (is_num(lhs->type) && is_num(rhs->type)) {
-    return new_binary(ND_PLUS, lhs, rhs);
+    return new_binary(p, ND_PLUS, lhs, rhs);
   }
 
   // ptr + ptr: Error
   if (lhs->type->target && rhs->type->target) {
-    error_cur_tok("invalid operation");
+    error_tok(&p->cur_tok, "invalid operation");
   }
 
   // num + ptr: convert to ptr + num
@@ -805,11 +778,11 @@ static Node *new_add(Node *lhs, Node *rhs) {
   }
 
   // ptr + num
-  return new_binary(ND_PLUS, lhs, rhs);
+  return new_binary(p, ND_PLUS, lhs, rhs);
 }
 
 
-static Node *new_sub(Node *lhs, Node *rhs) {
+static Node *new_sub(Parser *p, Node *lhs, Node *rhs) {
   mark_type(lhs);
   mark_type(rhs);
 
@@ -822,10 +795,10 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 
   // num - ptr: 不允许
   if (is_num(lhs->type) && rhs->type->target) {
-    error_cur_tok("不允许的操作：num - ptr");
+    error_tok(&p->cur_tok, "不允许的操作：num - ptr");
   }
 
-  Node *node = new_binary(ND_MINUS, lhs, rhs);
+  Node *node = new_binary(p, ND_MINUS, lhs, rhs);
   // num - num
   if (is_num(lhs->type) && is_num(rhs->type)) {
     node->type = lhs->type;
@@ -843,13 +816,13 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 
 
 // add = mul ("+" mul | "-" mul )*
-static Node *add(void) {
-  Node *node = mul();
+static Node *add(Parser *p) {
+  Node *node = mul(p);
   for (;;) {
-    if (match(TK_PLUS)) {
-      node = new_add(node, mul());
-    } else if (match(TK_MINUS)) {
-      node = new_sub(node, mul());
+    if (match(p, TK_PLUS)) {
+      node = new_add(p, node, mul(p));
+    } else if (match(p, TK_MINUS)) {
+      node = new_sub(p, node, mul(p));
     } else {
       return node;
     }
@@ -858,13 +831,13 @@ static Node *add(void) {
 }
 
 // mul = unary ("*" unary | "/" unary )*
-static Node *mul(void) {
-  Node *node = unary();
+static Node *mul(Parser *p) {
+  Node *node = unary(p);
   for (;;) {
-    if (match(TK_STAR)) {
-      node = new_binary(ND_MUL, node, unary());
-    } else if (match(TK_SLASH)) {
-      node = new_binary(ND_DIV, node, unary());
+    if (match(p, TK_STAR)) {
+      node = new_binary(p, ND_MUL, node, unary(p));
+    } else if (match(p, TK_SLASH)) {
+      node = new_binary(p, ND_DIV, node, unary(p));
     } else {
       return node;
     }
@@ -873,39 +846,39 @@ static Node *mul(void) {
 
 // unary = ("+" | "-" | "&" | "*")? unary
 //       | postfix 
-static Node *unary(void) {
-  if (match(TK_PLUS)) {
-    return unary();
+static Node *unary(Parser *p) {
+  if (match(p, TK_PLUS)) {
+    return unary(p);
   }
-  if (match(TK_MINUS)) {
-    return new_unary(ND_NEG, unary());
+  if (match(p, TK_MINUS)) {
+    return new_unary(p, ND_NEG, unary(p));
   }
-  if (match(TK_AMP)) {
-    return new_unary(ND_ADDR, unary());
+  if (match(p, TK_AMP)) {
+    return new_unary(p, ND_ADDR, unary(p));
   }
-  if (match(TK_STAR)) {
-    return new_unary(ND_DEREF, unary());
+  if (match(p, TK_STAR)) {
+    return new_unary(p, ND_DEREF, unary(p));
   }
-  return postfix();
+  return postfix(p);
 }
 
-static Node *new_path(Node *parent) {
-  Node *node = new_binary(ND_PATH, parent, primary());
+static Node *new_path(Parser *p, Node *parent) {
+  Node *node = new_binary(p, ND_PATH, parent, primary(p));
   return node;
 }
 
 // postfix = primary ("[" expr "]" | "." ident)*
-static Node *postfix(void) {
-  Node *node = primary();
+static Node *postfix(Parser *p) {
+  Node *node = primary(p);
   for (;;) {
-    if (match(TK_LBRACK)) {
-      node = new_binary(ND_INDEX, node, expr());
-      expect(TK_RBRACK, "]");
+    if (match(p, TK_LBRACK)) {
+      node = new_binary(p, ND_INDEX, node, expr(p));
+      expect(p, TK_RBRACK, "]");
       continue;
     }
 
-    if (match(TK_DOT)) {
-      node = new_path(node);
+    if (match(p, TK_DOT)) {
+      node = new_path(p, node);
     }
     return node;
   }
@@ -919,132 +892,131 @@ static Node *postfix(void) {
 //         | number
 //         | char
 //         | string
-static Node *primary(void) {
-  if (match(TK_LPAREN)) {
-    Node *node = expr();
-    if (!match(TK_RPAREN)) {
-      error_cur_tok("expected ')'\n");
+static Node *primary(Parser *p) {
+  if (match(p, TK_LPAREN)) {
+    Node *node = expr(p);
+    if (!match(p, TK_RPAREN)) {
+      error_tok(&p->cur_tok, "expected ')'\n");
       exit(1);
     }
     return node;
   }
 
-  if (peek(TK_LBRACK)) {
-    return array();
+  if (peek(p, TK_LBRACK)) {
+    return array(p);
   }
 
-  if (peek(TK_LCURLY)) {
-    return block();
+  if (peek(p, TK_LCURLY)) {
+    return block(p);
   }
 
-  if (peek(TK_HASH)) {
-    return ct_call();
+  if (peek(p, TK_HASH)) {
+    return ct_call(p);
   }
 
-  if (peek(TK_IDENT)) {
-    return ident_or_call();
+  if (peek(p, TK_IDENT)) {
+    return ident_or_call(p);
   }
 
-  if (peek(TK_CHAR)) {
-    return character();
+  if (peek(p, TK_CHAR)) {
+    return character(p);
   }
 
-  if (peek(TK_STR)) {
-    return string();
+  if (peek(p, TK_STR)) {
+    return string(p);
   }
 
-  if (peek(TK_NUM)) {
-    return number();
+  if (peek(p, TK_NUM)) {
+    return number(p);
   }
 
-
-  error_cur_tok("expected an expression\n");
+  error_tok(&p->cur_tok, "expected an expression\n");
   return NULL;
 }
 
-static Node *array(void) {
-  expect(TK_LBRACK, "[");
+static Node *array(Parser *p) {
+  expect(p, TK_LBRACK, "[");
   // TODO: 现在array节点还是用链表来实现的，应该改为数组
   Node head = {0};
   Node *cur = &head;
   int n = 0;
-  while (!peek(TK_RBRACK)) {
+  while (!peek(p, TK_RBRACK)) {
     if (cur != &head) {
-      expect(TK_COMMA, ",");
+      expect(p, TK_COMMA, ",");
     }
-    cur = cur->next = expr();
+    cur = cur->next = expr(p);
     n++;
   }
-  expect(TK_RBRACK, "]");
+  expect(p, TK_RBRACK, "]");
 
-  Node *array_node = new_node(ND_ARRAY);
+  Node *array_node = new_node(p, ND_ARRAY);
   array_node->elems = head.next;
   array_node->len = n;
   return array_node;
 }
 
 // call = ident "(" (expr ("," expr)*)? ")"
-static Node *call(Meta *meta) {
+static Node *call(Parser *p, Meta *meta) {
   Node arg_head = {0};
   Node *cur_arg = &arg_head;
 
-  expect(TK_LPAREN, "(");
+  expect(p, TK_LPAREN, "(");
 
-  while (!peek(TK_RPAREN)) {
+  while (!peek(p, TK_RPAREN)) {
     if (cur_arg != &arg_head) {
-      expect(TK_COMMA, ",");
+      expect(p, TK_COMMA, ",");
     }
-    cur_arg = cur_arg->next = expr();
+    cur_arg = cur_arg->next = expr(p);
   }
 
-  expect(TK_RPAREN, ")");
+  expect(p, TK_RPAREN, ")");
 
-  Node *node = new_node(ND_CALL);
+  Node *node = new_node(p, ND_CALL);
   node->meta = meta;
   node->args = arg_head.next;
   return node;
 }
 
-static Node *ident_or_call(void) {
-  Meta *meta = find_local(&parser.cur_tok);
+static Node *ident_or_call(Parser *p) {
+  Meta *meta = find_local(p, &p->cur_tok);
 
   if (meta== NULL) {
-    error_cur_tok("undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
+    error_tok(&p->cur_tok, "undefined identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
   }
 
-  advance();
+  advance(p);;
 
-  if (peek(TK_LPAREN)) {
-    return call(meta);
+  if (peek(p, TK_LPAREN)) {
+    return call(p, meta);
   }
 
-  return new_ident_node(meta);
+  return new_ident_node(p, meta);
 }
 
-static Node *ct_call(void) {
-  advance(); // 跳过'#'
+static Node *ct_call(Parser *p) {
+  advance(p);; // 跳过'#'
 
   // 函数名
-  Meta *meta = find_local(&parser.cur_tok);
+  Meta *meta = find_local(p, &p->cur_tok);
 
   if (meta== NULL) {
-    error_cur_tok("undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
+    error_tok(&p->cur_tok, "undefined identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
   }
 
-  advance();
+  advance(p);;
 
   // 函数调用
-  Node *node = call(meta);
+  Node *node = call(p, meta);
   node->kind = ND_CTCALL;
   return node;
 }
 
 // number = [0-9]+
-static Node *number(void) {
-  Node *node = new_node(ND_NUM);
-  node->val = strtol(parser.cur_tok.pos, NULL, 10);
+static Node *number(Parser *p) {
+  Node *node = new_node(p, ND_NUM);
+  node->val = strtol(p->cur_tok.pos, NULL, 10);
   node->type = TYPE_INT;
-  advance();
+  advance(p);;
   return node;
 }
 
@@ -1055,35 +1027,35 @@ static char *new_uniq_global_name(void) {
   return buf;
 }
 
-static Node *string(void) {
-  Node *node = new_node(ND_STR);
+static Node *string(Parser *p) {
+  Node *node = new_node(p, ND_STR);
 
-  char *lit = strndup(parser.cur_tok.pos, parser.cur_tok.len);
+  char *lit = strndup(p->cur_tok.pos, p->cur_tok.len);
   node->str = lit;
-  node->len = parser.cur_tok.len;
+  node->len = p->cur_tok.len;
 
-  Type* type = str_type(parser.cur_tok.len);
+  Type* type = str_type(p->cur_tok.len);
   node->type = type;
 
-  Meta* meta = new_local(new_uniq_global_name());
+  Meta* meta = new_local(p, new_uniq_global_name());
   meta->kind = META_CONST;
   meta->type = type;
   meta->str = lit;
-  meta->len = parser.cur_tok.len;
+  meta->len = p->cur_tok.len;
   meta->is_global = true;
 
   node->meta = meta;
   node->name = meta->name;
-  advance();
+  advance(p);;
   return node;
 }
 
 // character = "'" [a-zA-Z0-9] "'"
-static Node *character(void) {
-  Node *node = new_node(ND_CHAR);
-  node->cha = parser.cur_tok.pos[0];
+static Node *character(Parser *p) {
+  Node *node = new_node(p, ND_CHAR);
+  node->cha = p->cur_tok.pos[0];
   node->type = TYPE_CHAR;
-  advance();
+  advance(p);;
   return node;
 }
 

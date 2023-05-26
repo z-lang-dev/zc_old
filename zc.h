@@ -14,13 +14,14 @@
 // 默认的栈上分配的单位空间大小
 #define OFFSET_SIZE 8
 
-typedef struct Lexer Lexer;
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Value Value;
 typedef struct Region Region;
 typedef struct Scope Scope;
 typedef struct Spot Spot;
+typedef struct Lexer Lexer;
+typedef struct Parser Parser;
 
 
 // 版本号
@@ -111,8 +112,17 @@ void error_tok(Token *tok, char *fmt, ...);
 // =============================
 // 语法分析
 // =============================
+struct Parser {
+  Token cur_tok;
+  Token prev_tok;
+  // Meta *locals;
+  Region *global;
+  Region *region;
+  Scope *scope;
+  Lexer *lexer;
+};
 
-void new_parser(Lexer *lexer);
+Parser *new_parser(Lexer *lexer);
 
 typedef enum {
   META_LET, // 标量
@@ -232,9 +242,9 @@ struct Node {
 void print_node(Node *node, int level);
 
 // 解析一段代码
-Node *program(void);
+Node *program(Parser *p);
 // 解析一个模块
-Node *box(const char* name);
+Node *box(Parser *p, const char* name);
 
 
 // =============================

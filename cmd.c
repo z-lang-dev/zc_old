@@ -17,8 +17,8 @@ void lex(const char *src) {
 // 语法分析
 void parse(const char *src) {
   Lexer *lexer = init_lexer(src);
-  new_parser(lexer);
-  Node *prog = program();
+  Parser *p = new_parser(lexer);
+  Node *prog = program(p);
   for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);
   }
@@ -29,8 +29,8 @@ void parse(const char *src) {
 Value *eval(const char *src) {
   printf("zi>> %s\n", src);
   Lexer *lexer = init_lexer(src);
-  new_parser(lexer);
-  Node *prog= program();
+  Parser *p = new_parser(lexer);
+  Node *prog= program(p);
   Value *val = interpret(prog);
   return val;;
 }
@@ -40,8 +40,8 @@ void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
   Lexer *lexer = init_lexer(src);
-  new_parser(lexer);
-  Node *prog = program();
+  Parser *p = new_parser(lexer);
+  Node *prog = program(p);
   codegen(prog);
 
   // 调用clang将汇编编译成可执行文件
