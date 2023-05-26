@@ -14,6 +14,7 @@
 // 默认的栈上分配的单位空间大小
 #define OFFSET_SIZE 8
 
+typedef struct Lexer Lexer;
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Value Value;
@@ -83,13 +84,22 @@ struct Token {
   TokenKind kind; // 类型
   const char *pos; // 词符在代码中的位置
   size_t len; // 词符长度
+  Lexer *lexer;
+};
+
+// 词法分析器
+struct Lexer {
+  const char* file; // 文件名
+  const char* line; // 行号
+  const char* start; // 当前解析位置的开始位置，每解析完一个词符之后会更新。
+  const char* current; // 解析过程中的当前位置。一个词符解析完成时，current-start 就是词符的长度。
 };
 
 // 新建一个词法分析器，接收src源码 
-void init_lexer(const char *src);
+Lexer *init_lexer(const char *src);
 
 // 解析并获取下一个词符
-Token next_token(void);
+Token next_token(Lexer *lexer);
 
 // 打印词符
 void print_token(Token t);
@@ -97,11 +107,12 @@ void print_token(Token t);
 // 打印错误信息
 void error_tok(Token *tok, char *fmt, ...);
 
+
 // =============================
 // 语法分析
 // =============================
 
-void new_parser(void);
+void new_parser(Lexer *lexer);
 
 typedef enum {
   META_LET, // 标量
@@ -156,6 +167,7 @@ typedef enum {
   ND_ASN, // 赋值
   ND_IDENT, // 名符
   ND_BLOCK, // 代码块
+  ND_BOX, // 模块
   ND_IF, // if
   ND_FOR, // for
   ND_USE, // use
@@ -221,6 +233,8 @@ void print_node(Node *node, int level);
 
 // 解析一段代码
 Node *program(void);
+// 解析一个模块
+Node *box(const char* name);
 
 
 // =============================

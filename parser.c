@@ -13,14 +13,22 @@ struct Parser {
   Region *global;
   Region *region;
   Scope *scope;
+  Lexer *lexer;
 };
 
 static Parser parser;
 
-void new_parser(void) {
+void new_parser(Lexer *lexer) {
   parser.global = calloc(1, sizeof(Region));
   parser.region = parser.global;
   parser.scope = calloc(1, sizeof(Scope));
+  parser.lexer = lexer;
+}
+
+static void error_cur_tok(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  error_tok(&parser.cur_tok, fmt, ap);
 }
 
 
@@ -310,7 +318,7 @@ static Meta *find_local(Token *tok) {
 
 static void advance(void) {
   parser.prev_tok = parser.cur_tok;
-  parser.cur_tok = next_token();
+  parser.cur_tok = next_token(parser.lexer);
 }
 
 static Node *new_node(NodeKind kind) {
@@ -397,7 +405,7 @@ static bool expect(TokenKind kind, const char* expected) {
     advance();
     return true;
   }
-  error_tok(&parser.cur_tok, "expected '%s'\n", expected);
+  error_cur_tok("expected '%s'\n", expected);
   exit(1);
 }
 
@@ -446,6 +454,14 @@ static void skip_empty(void) {
   while (match(TK_NLINE)) {
     printf("DEBUG: skip empty NEWLINE statement\n");
   }
+}
+
+// TODO: 当前模块名称只支持一个单词，未来需要扩充为层级的"a.b.c"形式
+Node *box(const char* name) {
+  Node *node = new_node(ND_BOX);
+  node->name = name;
+  node->body = program();
+  return node;
 }
 
 // program = expr*
@@ -574,7 +590,7 @@ static Type *array_type(void) {
     Node *n = number();
     typ->len = n->val;
   } else {
-    error_tok(&parser.cur_tok, "静态数组必须指定长度\n");
+    error_cur_tok("静态数组必须指定长度\n");
   }
   expect(TK_RBRACK, "']'");
   typ->target = type();
@@ -603,7 +619,7 @@ static Type *type(void) {
   // 普通类型
   // 类型名称必然是一个TK_IDENT
   if (!peek(TK_IDENT)) {
-    error_tok(&parser.cur_tok, "expected a type name\n");
+    error_cur_tok("expected a type name\n");
     exit(1);
   }
   // 暂时只支持int和char类型
@@ -615,7 +631,7 @@ static Type *type(void) {
 // fn = "fn" ident ("(" param ("," param)* ")")? block
 static Node *fn(void) {
   if (parser.cur_tok.kind != TK_IDENT) {
-    error_tok(&parser.cur_tok, "expected function name\n");
+    error_cur_tok("expected function name\n");
     exit(1);
   }
 
@@ -669,7 +685,7 @@ static Node *fn(void) {
 // decl = "let" ident (type)? ("=" expr)?
 static Node *decl(void) {
   if (parser.cur_tok.kind != TK_IDENT) {
-    error_tok(&parser.cur_tok, "expected an identifier\n");
+    error_cur_tok("expected an identifier\n");
     exit(1);
   }
   Meta *meta = new_local(token_name(&parser.cur_tok));
@@ -692,7 +708,7 @@ static Node *decl(void) {
 // block = "{" expr* "}"
 static Node *block(void) {
   if (!match(TK_LCURLY)) {
-    error_tok(&parser.cur_tok, "expected '{'\n");
+    error_cur_tok("expected '{'\n");
     exit(1);
   }
 
@@ -707,7 +723,7 @@ static Node *block(void) {
     skip_empty();
   }
   if (!match(TK_RCURLY)) {
-    error_tok(&parser.cur_tok, "expected '}'\n");
+    error_cur_tok("expected '}'\n");
     exit(1);
   }
 
@@ -778,7 +794,7 @@ static Node *new_add(Node *lhs, Node *rhs) {
 
   // ptr + ptr: Error
   if (lhs->type->target && rhs->type->target) {
-    error_tok(&parser.cur_tok, "invalid operation");
+    error_cur_tok("invalid operation");
   }
 
   // num + ptr: convert to ptr + num
@@ -806,7 +822,7 @@ static Node *new_sub(Node *lhs, Node *rhs) {
 
   // num - ptr: 不允许
   if (is_num(lhs->type) && rhs->type->target) {
-    error_tok(&parser.cur_tok, "不允许的操作：num - ptr");
+    error_cur_tok("不允许的操作：num - ptr");
   }
 
   Node *node = new_binary(ND_MINUS, lhs, rhs);
@@ -907,7 +923,7 @@ static Node *primary(void) {
   if (match(TK_LPAREN)) {
     Node *node = expr();
     if (!match(TK_RPAREN)) {
-      error_tok(&parser.cur_tok, "expected ')'\n");
+      error_cur_tok("expected ')'\n");
       exit(1);
     }
     return node;
@@ -942,7 +958,7 @@ static Node *primary(void) {
   }
 
 
-  error_tok(&parser.cur_tok, "expected an expression\n");
+  error_cur_tok("expected an expression\n");
   return NULL;
 }
 
@@ -993,7 +1009,7 @@ static Node *ident_or_call(void) {
   Meta *meta = find_local(&parser.cur_tok);
 
   if (meta== NULL) {
-    error_tok(&parser.cur_tok, "undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
+    error_cur_tok("undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
   }
 
   advance();
@@ -1012,7 +1028,7 @@ static Node *ct_call(void) {
   Meta *meta = find_local(&parser.cur_tok);
 
   if (meta== NULL) {
-    error_tok(&parser.cur_tok, "undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
+    error_cur_tok("undefined identifier: %.*s\n", parser.cur_tok.len, parser.cur_tok.pos);
   }
 
   advance();

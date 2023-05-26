@@ -33,12 +33,11 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 基本的模块化
+# test 25 "use math; math.square(5)"
+# exit
+
 # 简单的编译期脚本
-
-#test 25 "use math; math.square(5)"
-
-#exit
-
 test 5 "fn a{5}; let b = #a(); b"
 
 # 指针类型

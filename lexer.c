@@ -6,20 +6,9 @@
 
 #include "zc.h"
 
-// 词法分析器
-typedef struct Lexer Lexer;
-struct Lexer {
-  const char* file; // 文件名
-  const char* line; // 行号
-  const char* start; // 当前解析位置的开始位置，每解析完一个词符之后会更新。
-  const char* current; // 解析过程中的当前位置。一个词符解析完成时，current-start 就是词符的长度。
-};
-
-Lexer lexer;
-
-static void verror(const char* loc, char *fmt, va_list ap) {
-  int n = loc - lexer.line;
-  fprintf(stderr, "%s \n", lexer.line);
+static void verror(Lexer* lexer, const char* loc, char *fmt, va_list ap) {
+  int n = loc - lexer->line;
+  fprintf(stderr, "%s \n", lexer->line);
   fprintf(stderr, "%*s", n, ""); // 输出pos个空格
   fprintf(stderr, "^ ");
   vfprintf(stderr, fmt, ap);
@@ -27,16 +16,16 @@ static void verror(const char* loc, char *fmt, va_list ap) {
   exit(1);
 }
 
-static void error(char *fmt, ...) {
+static void error(Lexer* lexer, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  verror(lexer.current-1, fmt, ap);
+  verror(lexer, lexer->current-1, fmt, ap);
 }
 
 void error_tok(Token *tok, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  verror(tok->pos, fmt, ap);
+  verror(tok->lexer, tok->pos, fmt, ap);
 }
 
 static const char* const TOKEN_NAMES[] = {
@@ -80,13 +69,15 @@ static const char* const TOKEN_NAMES[] = {
 
 
 // 初始化词法分析器
-static void new_lexer(const char *src) {
-  lexer.start = src;
-  lexer.current = src;
-  lexer.line = src;
+static Lexer* new_lexer(const char *src) {
+  Lexer *lexer = calloc(1, sizeof(Lexer));
+  lexer->start = src;
+  lexer->current = src;
+  lexer->line = src;
+  return lexer;
 }
 
-static void new_file_lexer(const char *file) {
+static Lexer* new_file_lexer(const char *file) {
   FILE *fp;
 
   // 如果文件名是"-"，则从标准输入读取
@@ -95,7 +86,7 @@ static void new_file_lexer(const char *file) {
   } else {
     fp = fopen(file, "r");
     if (!fp) {
-      error("【Lexer错误】：无法打开文件：%s\n", file);
+      fprintf(stderr, "【Lexer错误】：无法打开文件：%s\n", file);
     }
   }
 
@@ -123,8 +114,8 @@ static void new_file_lexer(const char *file) {
   fputc('\0', out);
   fclose(out);
 
-  new_lexer(buf);
-  lexer.file = file;
+  Lexer *lexer = new_lexer(buf);
+  lexer->file = file;
 
   // 读取整个文件
   // fseek(fp, 0, SEEK_END);
@@ -136,55 +127,56 @@ static void new_file_lexer(const char *file) {
   // fclose(fp);
   // new_lexer(src);
   // lexer.file = file;
+  return lexer;
 }
 
-void init_lexer(const char *src) {
+Lexer *init_lexer(const char *src) {
   if (strcmp(src, "-") == 0 ||ends_with(src, ".z") || ends_with(src, ".zs")) {
-    new_file_lexer(src);
+    return new_file_lexer(src);
   } else {
-    new_lexer(src);
+    return new_lexer(src);
   }
 }
 
 // 判断是否到源码末尾
-static bool is_eof(void) {
-  return *lexer.current == '\0';
+static bool is_eof(Lexer* lexer) {
+  return *(lexer->current) == '\0';
 }
 
 // 构造一个词符的辅助函数
-static Token make_token(TokenKind kind) {
+static Token make_token(Lexer* lexer, TokenKind kind) {
   Token token;
   token.kind = kind;
-  token.pos = lexer.start;
-  token.len = lexer.current - lexer.start;
+  token.pos = lexer->start;
+  token.len = lexer->current - lexer->start;
   return token;
 }
 
 // 查看当前待处理字符
-static char peek(void) {
-  return *lexer.current;
+static char peek(Lexer* lexer) {
+  return *(lexer->current);
 }
 
 // 前进一个字符；一般用于已经对当前字符做完判断之后
-static char advance(void) {
-  lexer.current++;
-  return lexer.current[-1];
+static char advance(Lexer* lexer) {
+  lexer->current++;
+  return lexer->current[-1];
 }
 
-static void skip(void) {
-  lexer.start = lexer.current;
-  lexer.current++;
+static void skip(Lexer* lexer) {
+  lexer->start = lexer->current;
+  lexer->current++;
 }
 
 // 跳过空白字符；注：由于Z语言支持省略分号，因此这里不能简单地跳过'\n'，还得考虑它用作表达式结束符的情况
-static void skip_whitespace(void) {
+static void skip_whitespace(Lexer *lexer) {
   for (;;) {
-    char c = peek();
+    char c = peek(lexer);
     switch (c) {
       case ' ':
       case '\r':
       case '\t':
-        advance();
+        advance(lexer);
         break;
       default:
         return;
@@ -206,30 +198,30 @@ static bool is_alnum(char c) {
 }
 
 // 解析数类型的词符，例如：1，999等
-static Token number(void) {
-  while (is_digit(peek())) {
-    advance();
+static Token number(Lexer *lexer) {
+  while (is_digit(peek(lexer))) {
+    advance(lexer);
   }
-  return make_token(TK_NUM);
+  return make_token(lexer, TK_NUM);
 }
 
-static Token str(void) {
-  skip();
-  while (peek() != '"' && !is_eof()) {
-    advance();
+static Token str(Lexer *lexer) {
+  skip(lexer);
+  while (peek(lexer) != '"' && !is_eof(lexer)) {
+    advance(lexer);
   }
-  Token t = make_token(TK_STR);
-  skip();
+  Token t = make_token(lexer, TK_STR);
+  skip(lexer);
   return t;
 }
 
-static Token cha(void) {
-  skip();
-  while (peek() != '\'' && !is_eof()) {
-    advance();
+static Token cha(Lexer *lexer) {
+  skip(lexer);
+  while (peek(lexer) != '\'' && !is_eof(lexer)) {
+    advance(lexer);
   }
-  Token t = make_token(TK_CHAR);
-  skip();
+  Token t = make_token(lexer, TK_CHAR);
+  skip(lexer);
   return t;
 }
 
@@ -247,102 +239,102 @@ static Token check_keyword(Token tok) {
   return tok;
 }
 
-static Token ident(void) {
-  while (is_alnum(peek())) {
-    advance();
+static Token ident(Lexer *lexer) {
+  while (is_alnum(peek(lexer))) {
+    advance(lexer);
   }
-  Token t = make_token(TK_IDENT);
+  Token t = make_token(lexer, TK_IDENT);
   return check_keyword(t);
 }
 
-static Token make_two_op(char follow, TokenKind op1, TokenKind op2) {
-  if (peek() == follow) {
-    advance();
-    return make_token(op2);
+static Token make_two_op(Lexer *lexer, char follow, TokenKind op1, TokenKind op2) {
+  if (peek(lexer) == follow) {
+    advance(lexer);
+    return make_token(lexer, op2);
   } else {
-    return make_token(op1);
+    return make_token(lexer, op1);
   }
 }
 
-Token next_token(void) {
+Token next_token(Lexer *lexer) {
   // 首先跳过空白字符
-  skip_whitespace();
+  skip_whitespace(lexer);
   // 更新start，代表要开始解析新的词符了
-  lexer.start = lexer.current; 
+  lexer->start = lexer->current; 
 
   // 如果遇到文件末尾，就返回TK_EOF
-  if (is_eof()) {
-    return make_token(TK_EOF);
+  if (is_eof(lexer)) {
+    return make_token(lexer, TK_EOF);
   }
 
   // 先读取一个字符。
-  char c = advance();
+  char c = advance(lexer);
 
   // 如果是数字
   if (is_digit(c)) {
-    return number();
+    return number(lexer);
   }
 
   if (c == '"') {
-    return str();
+    return str(lexer);
   }
   
   if (c == '\'') {
-    return cha();
+    return cha(lexer);
   }
 
   // 如果是名符
   if (is_alpha(c)) {
-    return ident();
+    return ident(lexer);
   }
 
   switch (c) {
     case '+':
-      return make_token(TK_PLUS);
+      return make_token(lexer, TK_PLUS);
     case '-':
-      return make_token(TK_MINUS);
+      return make_token(lexer, TK_MINUS);
     case '*':
-      return make_token(TK_STAR);
+      return make_token(lexer, TK_STAR);
     case '/':
-      return make_token(TK_SLASH);
+      return make_token(lexer, TK_SLASH);
     case '(':
-      return make_token(TK_LPAREN);
+      return make_token(lexer, TK_LPAREN);
     case ')':
-      return make_token(TK_RPAREN);
+      return make_token(lexer, TK_RPAREN);
     case '{':
-      return make_token(TK_LCURLY);
+      return make_token(lexer, TK_LCURLY);
     case '}':
-      return make_token(TK_RCURLY);
+      return make_token(lexer, TK_RCURLY);
     case '[':
-      return make_token(TK_LBRACK);
+      return make_token(lexer, TK_LBRACK);
     case ']':
-      return make_token(TK_RBRACK);
+      return make_token(lexer, TK_RBRACK);
     case '|':
-      return make_token(TK_VBAR);
+      return make_token(lexer, TK_VBAR);
     case '#':
-      return make_token(TK_HASH);
+      return make_token(lexer, TK_HASH);
     case ',':
-      return make_token(TK_COMMA);
+      return make_token(lexer, TK_COMMA);
     case ';':
-      return make_token(TK_SEMI);
+      return make_token(lexer, TK_SEMI);
     case '.':
-      return make_token(TK_DOT);
+      return make_token(lexer, TK_DOT);
     case '\n':
-      return make_token(TK_NLINE);
+      return make_token(lexer, TK_NLINE);
     case '&':
-      return make_token(TK_AMP);
+      return make_token(lexer, TK_AMP);
     case '=':
-      return make_two_op('=', TK_ASN, TK_EQ);
+      return make_two_op(lexer, '=', TK_ASN, TK_EQ);
     case '>':
-      return make_two_op('=', TK_GT, TK_GE);
+      return make_two_op(lexer, '=', TK_GT, TK_GE);
     case '<':
-      return make_two_op('=', TK_LT, TK_LE);
+      return make_two_op(lexer, '=', TK_LT, TK_LE);
     case '!':
-      return make_two_op('=', TK_NOT, TK_NE);
+      return make_two_op(lexer, '=', TK_NOT, TK_NE);
   }
 
-  error("【错误】：词法解析不支持的运算符：%c\n", c);
-  return make_token(TK_ERROR);
+  error(lexer, "【错误】：词法解析不支持的运算符：%c\n", c);
+  return make_token(lexer, TK_ERROR);
 
 }
 

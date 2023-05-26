@@ -3,9 +3,9 @@
 // 词法分析
 void lex(const char *src) {
   printf("Lexing...\n");
-  init_lexer(src);
+  Lexer *lexer = init_lexer(src);
   int n = 0;
-  for (Token t = next_token(); t.kind != TK_EOF; t = next_token()) {
+  for (Token t = next_token(lexer); t.kind != TK_EOF; t = next_token(lexer)) {
     print_token(t);
     n ++;
     if (n > 10) {
@@ -16,8 +16,8 @@ void lex(const char *src) {
 
 // 语法分析
 void parse(const char *src) {
-  init_lexer(src);
-  new_parser();
+  Lexer *lexer = init_lexer(src);
+  new_parser(lexer);
   Node *prog = program();
   for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);
@@ -28,8 +28,8 @@ void parse(const char *src) {
 // 表达式求值
 Value *eval(const char *src) {
   printf("zi>> %s\n", src);
-  init_lexer(src);
-  new_parser();
+  Lexer *lexer = init_lexer(src);
+  new_parser(lexer);
   Node *prog= program();
   Value *val = interpret(prog);
   return val;;
@@ -39,8 +39,8 @@ Value *eval(const char *src) {
 void compile(const char *src) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
 
-  init_lexer(src);
-  new_parser();
+  Lexer *lexer = init_lexer(src);
+  new_parser(lexer);
   Node *prog = program();
   codegen(prog);
 
