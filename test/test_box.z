@@ -1,3 +1,5 @@
+use math
+
 fn main {
-    14
+    math.square(5)
 }

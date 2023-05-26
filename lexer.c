@@ -71,6 +71,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_USE] = "TK_USE",
   [TK_COMMA] = "TK_COMMA",
   [TK_SEMI] = "TK_SEMI",
+  [TK_DOT] = "TK_DOT",
   [TK_AMP] = "TK_AMP",
   [TK_NLINE] = "TK_NLINE",
   [TK_EOF] = "TK_EOF",
@@ -324,6 +325,8 @@ Token next_token(void) {
       return make_token(TK_COMMA);
     case ';':
       return make_token(TK_SEMI);
+    case '.':
+      return make_token(TK_DOT);
     case '\n':
       return make_token(TK_NLINE);
     case '&':
@@ -354,5 +357,9 @@ static void print_token_kind(TokenKind kind) {
 void print_token(Token t) {
   printf("{");
   print_token_kind(t.kind);
-  printf("| %.*s }\n", (int)(t.len), t.pos);
+  if (t.kind == TK_NLINE) {
+    printf("| \\n }\n");
+  } else {
+    printf("| %.*s }\n", (int)(t.len), t.pos);
+  }
 }

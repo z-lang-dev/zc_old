@@ -4,8 +4,13 @@
 void lex(const char *src) {
   printf("Lexing...\n");
   init_lexer(src);
+  int n = 0;
   for (Token t = next_token(); t.kind != TK_EOF; t = next_token()) {
     print_token(t);
+    n ++;
+    if (n > 10) {
+      break;
+    }
   }
 }
 

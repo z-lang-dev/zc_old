@@ -72,6 +72,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_DEREF] = "DEREF",
   [ND_ARRAY] = "ARRAY",
   [ND_INDEX] = "INDEX",
+  [ND_PATH] = "PATH",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -271,6 +272,17 @@ void print_node(Node *node, int level) {
     print_node(node->rhs, level+2);
     print_level(level+1);
     printf("]\n");
+    print_level(level);
+    break;
+  }
+  case ND_PATH: {
+    printf("%s", node->name);
+    Node *sub = node->sub;
+    while (sub) {
+      printf(".");
+      printf(sub->name);
+      sub = sub->sub;
+    }
     print_level(level);
     break;
   }
@@ -859,16 +871,20 @@ static Node *unary(void) {
   return postfix();
 }
 
-// postfix = primary ("[" expr "]")*
+// postfix = primary ("[" expr "]" | "." ident)*
 static Node *postfix(void) {
   Node *node = primary();
   for (;;) {
     if (match(TK_LBRACK)) {
       node = new_binary(ND_INDEX, node, expr());
       expect(TK_RBRACK, "]");
-    } else {
-      return node;
+      continue;
     }
+
+    if (match(TK_DOT)) {
+      node = new_path(node);
+    }
+    return node;
   }
 }
 
@@ -917,6 +933,7 @@ static Node *primary(void) {
   if (peek(TK_NUM)) {
     return number();
   }
+
 
   error_tok(&parser.cur_tok, "expected an expression\n");
   return NULL;

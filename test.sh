@@ -35,6 +35,8 @@ test() {
 
 # 简单的编译期脚本
 
+test 25 "use math; math.square(5)"
+
 test 5 "fn a{5}; let b = #a(); b"
 
 # 指针类型

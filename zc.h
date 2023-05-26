@@ -70,6 +70,7 @@ typedef enum {
   TK_USE, // use
   TK_COMMA, // ,
   TK_SEMI, // ;
+  TK_DOT, // .
   TK_AMP, // &
   TK_NLINE, // \n
   TK_EOF, // 文件结束
@@ -158,6 +159,7 @@ typedef enum {
   ND_FOR, // for
   ND_USE, // use
   ND_FN, // 函数
+  ND_PATH, // 层级
   ND_CALL, // 函数调用
   ND_CTCALL, // 编译期调用
   ND_ADDR, // &, 取地址
@@ -210,6 +212,9 @@ struct Node {
 
   // 字符串
   char *str; // 字符串的内容
+
+  // 路径
+  Node *sub; // 子节点
 };
 
 // 打印AST节点
