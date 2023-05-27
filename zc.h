@@ -15,6 +15,7 @@
 #define OFFSET_SIZE 8
 
 typedef struct Type Type;
+typedef struct Field Field;
 typedef struct Node Node;
 typedef struct Value Value;
 typedef struct Lexer Lexer;
@@ -71,6 +72,7 @@ typedef enum {
   TK_ELSE, // else
   TK_FOR, // for
   TK_USE, // use
+  TK_TYPE, // type
   TK_COMMA, // ,
   TK_SEMI, // ;
   TK_DOT, // .
@@ -277,7 +279,16 @@ struct Type {
   Type *ret_type; // 函数的返回值类型
   Type *param_types; // 函数的参数类型
 
+  Field *fields; // 类型的字段 
+
   Type *next;
+};
+
+struct Field {
+  Field *next;
+  Type *ty;
+  Token *name;
+  int offset;
 };
 
 extern Type *TYPE_INT;

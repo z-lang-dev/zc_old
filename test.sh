@@ -33,6 +33,10 @@ test() {
     assert "$want" "$input" "$got"
 }
 
+# 基本的自定义类型
+#test 21 "type Point { x int; y int }; let p Point; p.x=21; p.y=34; p.x"
+#exit
+
 # 基本的模块化
 test 25 "use math; math.square(5)"
 

@@ -58,6 +58,7 @@ static const char* const TOKEN_NAMES[] = {
   [TK_ELSE] = "TK_ELSE",
   [TK_FOR] = "TK_FOR",
   [TK_USE] = "TK_USE",
+  [TK_TYPE] = "TK_TYPE",
   [TK_COMMA] = "TK_COMMA",
   [TK_SEMI] = "TK_SEMI",
   [TK_DOT] = "TK_DOT",
