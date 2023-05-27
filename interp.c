@@ -104,15 +104,18 @@ Value *gen_expr(Node *node) {
       return val_num(0);
     }
     case ND_FN: {
-      // printf("DEBUG: gen_expr:ND_FN\n");
-      // print_node(node, 0);
       set_local_offsets(node->meta);
       return val_num(0);
     }
     case ND_CTCALL: // 在解释器里并没有编译期的概念，因此CTCALL和普通的CALL是一样的
     case ND_CALL: {
       Meta *fmeta = node->meta;
+      // 如果是引用的函数名，应当找到对应的原函数
+      if (fmeta->kind == META_REF) {
+        fmeta = fmeta->ref;
+      }
       // builtin function: puts
+      // TODO：把内置函数放到单独的模块里
       if (strcmp(fmeta->name, "puts") == 0) {
         Value *arg = gen_expr(node->args);
         printf("%s\n", arg->as.str->str);
@@ -207,10 +210,7 @@ Value *gen_expr(Node *node) {
 
 
 Value *interpret(Node *prog) {
-  // printf("DEBUG: prog kind: %u\n", prog->kind);
-  // if (prog->kind == ND_FN) {
-    set_local_offsets(prog->meta);
-  // }
+  set_local_offsets(prog->meta);
   Value *r;
   for (Node *e = prog->body; e; e = e->next) {
     r = gen_expr(e);

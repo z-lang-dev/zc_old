@@ -413,7 +413,7 @@ static void gen_global_data(Meta* meta) {
   }
 }
 
-void codegen(Node *prog) {
+void codegen_main(Node *prog) {
   // 打开目标汇编文件，并写入汇编代码
   fp = fopen("app.s", "w");
 
@@ -427,7 +427,6 @@ void codegen(Node *prog) {
   for (Meta *meta= prog->meta->region->locals; meta; meta=meta->next) {
     if (meta->kind== META_FN) {
       if (strcmp(meta->name, "main") == 0) {
-        printf("DEBUG: Got main definition.\n");
         mainFn = meta;
       } else {
         // 单独声明没有定义的话，就不处理了。
@@ -472,5 +471,55 @@ void codegen(Node *prog) {
   emit("ret");
 
   fclose(fp);
+}
+
+void codegen_lib(Box *b) {
+  char *buf = calloc(1, 1024);
+  sprintf(buf, "%s.s", b->name);
+  fp = fopen(buf, "w");
+
+  set_local_offsets(b->prog->meta);
+
+  emit(".intel_syntax noprefix");
+
+  // 生成自定义函数的代码
+  bool has_global_data = false;
+  for (Meta *meta= b->prog->meta->region->locals; meta; meta=meta->next) {
+    if (meta->kind== META_FN) {
+      if (strcmp(meta->name, "main") == 0) {
+        printf("DEBUG: Got main definition in lib, ignored.\n");
+      } else {
+        // 单独声明没有定义的话，就不处理了。
+        if (meta->is_decl) {
+          continue;
+        }
+        gen_fn(meta);
+      }
+    } else if (meta->kind == META_CONST) {
+      if (!has_global_data) {
+        emit(".data");
+        has_global_data = true;
+      }
+      gen_global_data(meta);
+    }
+  }
+
+  fclose(fp);
+}
+
+
+void codegen_box(Box *b) {
+
+  // 生成use引用到的模块
+  for (Box *bo = all_boxes(); bo; bo = bo->next) {
+    // 忽略掉主模块
+    if (strcmp(bo->name, b->name) == 0) {
+      continue;
+    }
+    codegen_lib(bo);
+  }
+
+  // 生成主模块的代码
+  codegen_main(b->prog);
 }
 

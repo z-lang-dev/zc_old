@@ -118,18 +118,17 @@ struct Parser {
   Token cur_tok;
   Token prev_tok;
   // Meta *locals;
-  Region *global;
-  Region *region;
-  Scope *scope;
   Lexer *lexer;
 };
 
-Parser *new_parser(Lexer *lexer);
+Parser *new_parser(Box *box, Lexer *lexer);
 
 typedef enum {
   META_LET, // 标量
   META_CONST, // 常量
   META_FN, // 函数
+  META_BOX, // 模块
+  META_REF, // 引用外部信息
 } MetaKind;
 
 // 值量：记录各种值量的编译期信息，未来会包括类型信息等
@@ -158,6 +157,9 @@ struct Meta {
   char *str; // 字符串的内容
   size_t len; // 字符串的长度
 
+  // 模块
+  Box *box;
+  Meta *ref; // 引用其他模块的元信息
 };
 
 // 语法树节点的种类
@@ -373,7 +375,8 @@ Value *interpret(Node *prog);
 // =============================
 // 代码生成：codegen.c
 // =============================
-void codegen(Node *prog);
+void codegen_main(Node *prog);
+void codegen_box(Box *b);
 
 // =============================
 // 模块化
@@ -397,10 +400,17 @@ struct Box {
   const char *path;
   char *src;
 
+  // 用于解释器（解释器可以多次解释，都算作同一个模块）
   NodeLink *nodes;
+  // 用于编译器（编译时一个模块只对应一个文件）
+  Node *prog;
 
   Box *children;
   Box *next;
+
+  Region *global;
+  Region *region;
+  Scope *scope;
 };
 
 void init_root_box(void);
@@ -409,12 +419,15 @@ Box *create_code_box(void);
 Node *parse_code(Box *b, const char *src);
 Box *create_file_box(const char* path);
 Node *parse_file(Box *b);
+void print_boxes(void);
 
 // 根据名称查找模块
 Box *find_box(const char *name);
 
 // 查找模块中的值量
-Meta *lookup(const char *name);
+Meta *box_lookup(Box *b, const char *name);
+
+Box *all_boxes(void);
 
 // =============================
 // 命令：cmd.c

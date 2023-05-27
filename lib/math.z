@@ -1,3 +1,1 @@
-fn square(n int) {
-    n * n
-}
+fn square(n int) {n*n}

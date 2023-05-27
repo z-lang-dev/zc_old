@@ -149,6 +149,7 @@ static Token make_token(Lexer* lexer, TokenKind kind) {
   token.kind = kind;
   token.pos = lexer->start;
   token.len = lexer->current - lexer->start;
+  token.lexer = lexer;
   return token;
 }
 

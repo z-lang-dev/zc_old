@@ -2,15 +2,42 @@
 
 Box *root_box;
 
+void print_boxes(void) {
+  Box *box = root_box->children;
+  while (box) {
+    printf("box: %s\n", box->name);
+    box = box->next;
+  }
+}
+
+Box *all_boxes(void) {
+  return root_box->children;
+}
+
+static Box *init_box(void) {
+  Box *b = malloc(sizeof(Box));
+  b->src = NULL;
+  b->children = NULL;
+  b->nodes = calloc(1, sizeof(NodeLink));
+  b->nodes->head = NULL;
+  b->nodes->tail = NULL;
+
+  b->global = calloc(1, sizeof(Region));
+  b->region = b->global;
+  b->scope = calloc(1, sizeof(Scope));
+  return b;
+}
+
+static void add_box(Box *b) {
+  b->next = root_box->children;
+  root_box->children = b;
+}
+
 void init_root_box(void) {
-  root_box = calloc(1, sizeof(Box));
+  root_box = init_box();
   root_box->name = "ROOT_BOX";
   root_box->kind = BOX_PACK;
   root_box->path = ".";
-  root_box->src = NULL;
-  root_box->nodes = calloc(1, sizeof(NodeLink));
-  root_box->nodes->head = NULL;
-  root_box->nodes->tail = NULL;
 }
 
 Box *find_box(const char *name) {
@@ -34,50 +61,36 @@ static const char* get_box_name(const char* path) {
   return name;
 }
 
+
 Box *create_code_box(void) {
-  Box *b = malloc(sizeof(Box));
+  Box *b = init_box();
   b->kind = BOX_CODE; 
   b->name = "CODE_BOX";
-  b->src = NULL;
-  b->next = root_box->children;
-  b->children = NULL;
-  b->nodes = calloc(1, sizeof(NodeLink));
-  b->nodes->head = NULL;
-  b->nodes->tail = NULL;
-  root_box->children = b;
+  add_box(b);
   return b;
 }
 
 Box *create_file_box(const char* path) {
   const char *name = get_box_name(path);
-  printf("DEBUG: name %s\n", name);
-  Box *b = malloc(sizeof(Box));
+  Box *b = init_box();
   b->kind = BOX_FILE;
   b->name = name;
   b->path = path;
-  b->children = NULL;
-  b->nodes = calloc(1, sizeof(NodeLink));
-  b->nodes->head = NULL;
-  b->nodes->tail = NULL;
-  b->next = root_box->children;
-  root_box->children = b;
+  add_box(b);
   return b;
 }
 
 // 如果是文件模块，解析文件内容，生成AST
 // 注意：每个文件对应一个模块
 Node *parse_file(Box *b) {
-  printf("DEBUG: start parsing file\n");
   if (b->kind != BOX_FILE) {
     fprintf(stderr, "不是文件模块\n");
     exit(-1);
   }
-  printf("DEBUG: file: %s\n", b->path);
   Lexer *l = init_lexer(b->path);
-  Parser *p = new_parser(l);
+  Parser *p = new_parser(b, l);
   Node *prog = program(p);
-  b->nodes->head = prog;
-  b->nodes->tail = prog;
+  b->prog = prog;
   return prog;
 }
 
@@ -86,7 +99,7 @@ Node *parse_code(Box *b, const char *src) {
     fprintf(stderr, "不是源码模块");
   }
   Lexer *l = init_lexer(src);
-  Parser *p = new_parser(l);
+  Parser *p = new_parser(b, l);
   Node *prog = program(p);
   // 注意，这里的parts是一个链表
   if (b->nodes->head == NULL) {
@@ -96,4 +109,16 @@ Node *parse_code(Box *b, const char *src) {
     b->nodes->tail->next = prog;
   }
   return prog;
+}
+
+Meta *box_lookup(Box *b, const char *name) {
+// 从最近的scope到更外层的scope依次查找
+  for (Scope *scope = b->scope; scope; scope = scope->parent) {
+    for (Spot *s= scope->spots; s; s=s->next) {
+      if (strcmp(name, s->name) == 0) {
+        return s->meta;
+      }
+    }
+  }
+  return NULL;
 }

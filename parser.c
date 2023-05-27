@@ -5,33 +5,31 @@
 
 #include "zc.h"
 
-Parser *new_parser(Lexer *lexer) {
+Parser *new_parser(Box *box, Lexer *lexer) {
   Parser *parser = calloc(1, sizeof(Parser));
-  parser->global = calloc(1, sizeof(Region));
-  parser->region = parser->global;
-  parser->scope = calloc(1, sizeof(Scope));
+  parser->box = box;
   parser->lexer = lexer;
   return parser;
 }
 
 static void enter_scope(Parser *p) {
   Scope *sc = calloc(1, sizeof(Scope));
-  sc->parent = p->scope;
-  p->scope = sc;
+  sc->parent = p->box->scope;
+  p->box->scope = sc;
 }
 
 static void leave_scope(Parser *p) {
-  p->scope = p->scope->parent;
+  p->box->scope = p->box->scope->parent;
 }
 
 static void enter_region(Parser *p) {
   Region *r = calloc(1, sizeof(Region));
-  r->parent = p->region;
-  p->region = r;
+  r->parent = p->box->region;
+  p->box->region = r;
 }
 
 static void leave_region(Parser *p) {
-  p->region = p->region->parent;
+  p->box->region = p->box->region->parent;
 }
 
 static const char* const NODE_KIND_NAMES[] = {
@@ -279,23 +277,14 @@ void print_node(Node *node, int level) {
   printf(")\n");
 }
 
-
-static bool equals(Token *token, const char *str) {
-  return token->len == strlen(str) && !strncmp(token->pos, str, token->len);
+static char *token_name(Token *tok) {
+  return strndup(tok->pos, tok->len);
 }
 
 // 查看名符是否已经在locals中记录了。包括所有的量名符和函数名符。
 // TODO：由于现在没有做出hash算法，这里的查找是O(n)的，未来需要改为用哈希查找需要优化。
 static Meta *find_local(Parser *p, Token *tok) {
-  // 从最近的scope到更外层的scope依次查找
-  for (Scope *scope = p->scope; scope; scope = scope->parent) {
-    for (Spot *s= scope->spots; s; s=s->next) {
-      if (equals(tok, s->name)) {
-        return s->meta;
-      }
-    }
-  }
-  return NULL;
+  return box_lookup(p->box, token_name(tok));
 }
 
 static void advance(Parser *p) {
@@ -346,8 +335,8 @@ static Spot *set_scope(Parser *p, char *name, Meta *meta) {
   Spot *s = calloc(1, sizeof(Spot));
   s->name = name;
   s->meta = meta;
-  s->next = p->scope->spots;
-  p->scope->spots = s;
+  s->next = p->box->scope->spots;
+  p->box->scope->spots = s;
   return s;
 }
 
@@ -355,8 +344,8 @@ static Spot *set_scope(Parser *p, char *name, Meta *meta) {
 static Meta *new_local(Parser *p, char *name) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->name = name;
-  meta->next = p->region->locals;
-  p->region->locals = meta;
+  meta->next = p->box->region->locals;
+  p->box->region->locals = meta;
   set_scope(p, name, meta);
   return meta;
 }
@@ -393,9 +382,6 @@ static void expect_expr_sep(Parser *p) {
   exit(1);
 }
 
-static char *token_name(Token *tok) {
-  return strndup(tok->pos, tok->len);
-}
 
 static Node *expr(Parser *p);
 static Node *use(Parser *p);
@@ -416,6 +402,8 @@ static Node *ct_call(Parser *p);
 static Node *number(Parser *p);
 static Node *character(Parser *p);
 static Node *string(Parser *p);
+
+static Node *call(Parser *p, Meta *meta);
 
 static Type *type(Parser *p);
 
@@ -457,25 +445,37 @@ Node *program(Parser *p) {
   Meta *meta= calloc(1, sizeof(Meta));
   meta->kind= META_FN;
   meta->type= fn_type(TYPE_INT);
-  meta->region = p->region;
+  meta->region = p->box->region;
   prog->meta= meta;
   return prog;
 }
 
 static Node *use(Parser *p) {
   Node *node = new_node(p, ND_USE);
-
-/*
-  Meta *meta = new_local(token_name(&p->cur_tok));
-  Type* typ = fn_type(TYPE_INT);
-  meta->type = typ;
-  advance(p);;
-  Node *path = new_ident_node(meta);
-  path->type = typ;
-  path->meta = meta;
-  node->body = path;
-  node->type = typ;
-*/
+  // 如果find_local能找到，说明之前已经导入过了
+  Meta *meta = find_local(p, &p->cur_tok);
+  // 没有导入过，需要先解析对应的模块文件
+  if (meta == NULL) {
+    // 先找一下，以免重复导入（多个文件都use同一个模块时，这一步可以避免重复导入）
+    char *name = token_name(&p->cur_tok);
+    Box *box = find_box(name);
+    // 没有找到模块，需要新建模块并导入
+    if (box == NULL) {
+      // 注意：暂时只支持从lib目录导入单个文件
+      char path[1024];
+      snprintf(path, sizeof(path), "lib/%s.z", name);
+      box = create_file_box(path);
+      box->name = name;
+      box->path = path;
+      Node *box_tree = parse_file(box);
+      meta = new_local(p, name);
+      meta->kind = META_BOX;
+      meta->body = box_tree;
+      meta->box = box;
+    }
+    node->name = name;
+  }
+  advance(p);
   return node;
 }
 
@@ -507,6 +507,7 @@ static Node *for_expr(Parser *p) {
 //      | fn
 //      | decl
 //      | asn
+//      | use
 static Node *expr(Parser *p) {
   skip_empty(p);
   // use
@@ -621,7 +622,7 @@ static Node *fn(Parser *p) {
   if (match(p, TK_LPAREN)) {
     Type *cur_param = &param_head;
     while (!match(p, TK_RPAREN)) {
-      if (p->region->locals != NULL) {
+      if (p->box->region->locals != NULL) {
         expect(p, TK_COMMA, "','");
       }
       // 参数名称
@@ -632,7 +633,7 @@ static Node *fn(Parser *p) {
       pmeta->type = type(p);
       cur_param = cur_param->next = copy_type(pmeta->type);
     }
-    fmeta->params = p->region->locals;
+    fmeta->params = p->box->region->locals;
   }
 
   fmeta->type = fn_type(TYPE_INT);
@@ -645,7 +646,7 @@ static Node *fn(Parser *p) {
     fmeta->is_decl = true;
   }
 
-  fmeta->region = p->region;
+  fmeta->region = p->box->region;
   Node *node = new_fn_node(p, fmeta);
   fmeta->def = node;
 
@@ -862,15 +863,23 @@ static Node *unary(Parser *p) {
   return postfix(p);
 }
 
-static Node *new_path(Parser *p, Node *parent) {
-  Node *node = new_binary(p, ND_PATH, parent, primary(p));
-  return node;
-}
-
-// postfix = primary ("[" expr "]" | "." ident)*
+// postfix = primary tail*
+// tail = "[" expr "]"
+//      | "(" args ")"
+//      | "." ident
 static Node *postfix(Parser *p) {
   Node *node = primary(p);
   for (;;) {
+    if (peek(p, TK_LPAREN)) {
+      Meta *meta = find_local(p, &p->prev_tok);
+      if (meta == NULL) {
+        error_tok(&p->cur_tok, "undefined function: %s", token_name(&p->cur_tok));
+      }
+      // 寻找函数对应的meta，注意要考虑模块导入的情况
+      node = call(p, meta);
+      continue;
+    }
+
     if (match(p, TK_LBRACK)) {
       node = new_binary(p, ND_INDEX, node, expr(p));
       expect(p, TK_RBRACK, "]");
@@ -878,7 +887,21 @@ static Node *postfix(Parser *p) {
     }
 
     if (match(p, TK_DOT)) {
-      node = new_path(p, node);
+      // 判断当前点是否为模块名称
+      if (node->meta && node->meta->kind == META_BOX) {
+        char *name = token_name(&p->cur_tok);
+        Meta *ref_meta = box_lookup(node->meta->box, name);
+        if (!ref_meta) {
+          error_tok(&p->cur_tok, "undefined box member: %s", name);
+        }
+        Meta *local_meta = new_local(p, name);
+        local_meta->kind = META_REF;
+        local_meta->ref = ref_meta;
+        Node *sub = new_ident_node(p, local_meta);
+        advance(p);
+        node = new_binary(p, ND_PATH, node, sub);
+      }
+      continue;
     }
     return node;
   }
@@ -981,7 +1004,7 @@ static Node *ident_or_call(Parser *p) {
   Meta *meta = find_local(p, &p->cur_tok);
 
   if (meta== NULL) {
-    error_tok(&p->cur_tok, "undefined identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
+    error_tok(&p->cur_tok, "undefined local identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
   }
 
   advance(p);;
@@ -1000,7 +1023,7 @@ static Node *ct_call(Parser *p) {
   Meta *meta = find_local(p, &p->cur_tok);
 
   if (meta== NULL) {
-    error_tok(&p->cur_tok, "undefined identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
+    error_tok(&p->cur_tok, "undefined ctcall identifier: %.*s\n", p->cur_tok.len, p->cur_tok.pos);
   }
 
   advance(p);;

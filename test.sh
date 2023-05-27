@@ -34,8 +34,7 @@ test() {
 }
 
 # 基本的模块化
-# test 25 "use math; math.square(5)"
-# exit
+test 25 "use math; math.square(5)"
 
 # 简单的编译期脚本
 test 5 "fn a{5}; let b = #a(); b"

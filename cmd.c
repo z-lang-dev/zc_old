@@ -16,9 +16,10 @@ void lex(const char *src) {
 
 // 语法分析
 void parse(const char *src) {
-  Lexer *lexer = init_lexer(src);
-  Parser *p = new_parser(lexer);
-  Node *prog = program(p);
+  init_root_box();
+  Box *b = create_code_box();
+  Node *prog = parse_code(b, src);
+  print_boxes();
   for (Node *n = prog->body; n; n = n->next) {
     print_node(n, 0);
   }
@@ -40,9 +41,9 @@ void compile(const char *file) {
   printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", file);
   init_root_box();
   Box *b = create_file_box(file);
-  Node *prog = parse_file(b);
-  codegen(prog);
+  parse_file(b);
+  codegen_box(b);
 
   // 调用clang将汇编编译成可执行文件
-  system("clang -o app.exe app.s");
+  system("clang -o app.exe *.s");
 }
