@@ -28,20 +28,19 @@ void parse(const char *src) {
 // 表达式求值
 Value *eval(const char *src) {
   printf("zi>> %s\n", src);
-  Lexer *lexer = init_lexer(src);
-  Parser *p = new_parser(lexer);
-  Node *prog= program(p);
+  init_root_box();
+  Box *b = create_code_box();
+  Node *prog = parse_code(b, src);
   Value *val = interpret(prog);
   return val;;
 }
 
 // 编译源码
-void compile(const char *src) {
-  printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", src);
-
-  Lexer *lexer = init_lexer(src);
-  Parser *p = new_parser(lexer);
-  Node *prog = program(p);
+void compile(const char *file) {
+  printf("Compiling '%s' to app.exe\nRun with `./app.exe; echo $?`\n", file);
+  init_root_box();
+  Box *b = create_file_box(file);
+  Node *prog = parse_file(b);
   codegen(prog);
 
   // 调用clang将汇编编译成可执行文件

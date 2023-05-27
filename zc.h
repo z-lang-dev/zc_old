@@ -17,11 +17,12 @@
 typedef struct Type Type;
 typedef struct Node Node;
 typedef struct Value Value;
+typedef struct Lexer Lexer;
+typedef struct Parser Parser;
+typedef struct Box Box;
 typedef struct Region Region;
 typedef struct Scope Scope;
 typedef struct Spot Spot;
-typedef struct Lexer Lexer;
-typedef struct Parser Parser;
 
 
 // 版本号
@@ -113,6 +114,7 @@ void error_tok(Token *tok, char *fmt, ...);
 // 语法分析
 // =============================
 struct Parser {
+  Box *box;
   Token cur_tok;
   Token prev_tok;
   // Meta *locals;
@@ -372,6 +374,47 @@ Value *interpret(Node *prog);
 // 代码生成：codegen.c
 // =============================
 void codegen(Node *prog);
+
+// =============================
+// 模块化
+// =============================
+typedef enum {
+  BOX_CODE, // 源码，用于解释器
+  BOX_FILE, // 文件
+  BOX_DIR, // 目录，包含多个子模块
+  BOX_PACK, // 包，包含多个子模块
+} BoxKind;
+
+typedef struct NodeLink NodeLink;
+struct NodeLink {
+  Node* head;
+  Node* tail;
+};
+
+struct Box {
+  BoxKind kind;
+  const char *name;
+  const char *path;
+  char *src;
+
+  NodeLink *nodes;
+
+  Box *children;
+  Box *next;
+};
+
+void init_root_box(void);
+
+Box *create_code_box(void);
+Node *parse_code(Box *b, const char *src);
+Box *create_file_box(const char* path);
+Node *parse_file(Box *b);
+
+// 根据名称查找模块
+Box *find_box(const char *name);
+
+// 查找模块中的值量
+Meta *lookup(const char *name);
 
 // =============================
 // 命令：cmd.c
