@@ -1,40 +1,9 @@
 {
-    "files.associations": {
-        "*.tcc": "c",
-        "system_error": "c",
-        "random": "c",
-        "limits": "c",
-        "new": "c",
-        "ostream": "c",
-        "stdexcept": "c",
-        "streambuf": "c",
-        "functional": "c",
-        "zc.h": "c",
-        "cctype": "c",
-        "string.h": "c",
-        "fstream": "c",
-        "istream": "c",
-        "compare": "c",
-        "exception": "c",
-        "algorithm": "c",
-        "initializer_list": "c",
-        "numeric": "c",
-        "type_traits": "c",
-        "array": "c",
-        "atomic": "c",
-        "bit": "c",
-        "cmath": "c",
-        "concepts": "c",
-        "string": "c",
-        "unordered_map": "c",
-        "memory": "c",
-        "memory_resource": "c",
-        "string_view": "c",
-        "utility": "c",
-        "iosfwd": "c",
-        "tuple": "c",
-        "typeinfo": "c",
-        "optional": "c",
-        "sstream": "c"
-    }
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/visus/gitee.com/z-lang/zc",
+            "binaryPath": "/home/visus/gitee.com/z-lang/zc/zc.exe",
+            "binaryArgs": ["type Point {x int; y int}"],
+        }
+    ]
 }

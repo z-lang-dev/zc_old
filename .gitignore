@@ -7,3 +7,4 @@ zc
 *.stackdump
 *.s
 app
+.vscode/**

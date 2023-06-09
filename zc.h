@@ -195,6 +195,7 @@ typedef enum {
   ND_DEREF, // *, 指针取值
   ND_ARRAY, // 数组字面值
   ND_INDEX, // 数组下标
+  ND_TYPE, // 类型定义
   ND_UNKNOWN, // 未知 
 } NodeKind;
 
@@ -242,6 +243,9 @@ struct Node {
   // 字符串
   char *str; // 字符串的内容
 
+  // 字段访问
+  Field *field;
+
 };
 
 // 打印AST节点
@@ -264,6 +268,7 @@ typedef enum {
   TY_ARRAY, // 数组
   TY_FN, // 函数
   TY_STR, // 字符串
+  TY_TYPE, // 类型
 } TypeKind;
 
 struct Type {

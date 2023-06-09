@@ -387,6 +387,7 @@ static Node *expr(Parser *p);
 static Node *use(Parser *p);
 static Node *decl(Parser *p);
 static Node *fn(Parser *p);
+static Node *type_decl(Parser *p);
 static Node *asn(Parser *p);
 static Node *equality(Parser *p);
 static Node *relational(Parser *p);
@@ -529,7 +530,12 @@ static Node *expr(Parser *p) {
     return fn(p);
   }
 
-  // decl
+  // type decl
+  if (match(p, TK_TYPE)) {
+    return type_decl(p);
+  }
+
+  // decl for values
   if (match(p, TK_LET)) {
     return decl(p);
   }
@@ -675,6 +681,49 @@ static Node *decl(Parser *p) {
   if (match(p, TK_ASN)) {
     node = new_binary(p, ND_ASN, node, expr(p));
   }
+  return node;
+}
+
+// type_decl = "type" ident "{" field* "}"
+static Node *type_decl(Parser *p) {
+  // parse type name
+  if (p->cur_tok.kind != TK_IDENT) {
+    error_tok(&p->cur_tok, "expected a type name\n");
+    exit(1);
+  }
+
+  // type name
+  Type *typ = calloc(1, sizeof(Type));
+  typ->kind = TY_TYPE;
+  typ->name = &p->cur_tok;
+  advance(p);
+
+  // fields
+  if (!match(p, TK_LCURLY)) {
+    error_tok(&p->cur_tok, "expected '{' for type decl \n");
+    exit(1);
+  }
+
+  Field head = {0};
+  Field *cur = &head;
+
+  while (!peek(p, TK_RCURLY)) {
+    if (cur != &head) {
+      expect_expr_sep(p);
+    }
+    cur = cur->next = calloc(1, sizeof(Field));
+    cur->name = &p->cur_tok;
+    advance(p);
+    Type *field_typ = type(p);
+    cur->ty = field_typ;
+  }
+
+  typ->fields = head.next;
+
+
+  Node *node = new_node(p, ND_TYPE);
+  node->type = typ;
+  node->name = token_name(typ->name);
   return node;
 }
 
