@@ -3,7 +3,14 @@
         {
             "cwd": "/home/visus/gitee.com/z-lang/zc",
             "binaryPath": "/home/visus/gitee.com/z-lang/zc/zc.exe",
-            "binaryArgs": ["type Point {x int; y int}"],
+            "binaryArgs": [
+                "\"type Point {x int; y int}\""
+            ]
+        },
+        {
+            "cwd": "/home/visus/gitee.com/z-lang/zc",
+            "binaryPath": "/home/visus/gitee.com/z-lang/zc/zc.exe",
+            "binaryArgs": []
         }
     ]
 }

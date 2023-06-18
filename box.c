@@ -38,6 +38,11 @@ void init_root_box(void) {
   root_box->name = "ROOT_BOX";
   root_box->kind = BOX_PACK;
   root_box->path = ".";
+  Type head = {0};
+  Type *cur = &head;
+  cur = cur->next = TYPE_INT;
+  cur = cur->next = TYPE_CHAR;
+  root_box->types = head.next;
 }
 
 Box *find_box(const char *name) {
@@ -118,6 +123,22 @@ Meta *box_lookup(Box *b, const char *name) {
       if (strcmp(name, s->name) == 0) {
         return s->meta;
       }
+    }
+  }
+  return NULL;
+}
+
+
+Type *box_find_type(Box *b, const char *name) {
+  for (Type *ty = b->types; ty; ty = ty->next) {
+    if (strcmp(name, ty->name) == 0) {
+      return ty;
+    }
+  }
+  // look for builtin types
+  for (Type *ty = root_box->types; ty; ty = ty->next) {
+    if (strcmp(name, ty->name) == 0) {
+      return ty;
     }
   }
   return NULL;

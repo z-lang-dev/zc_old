@@ -275,7 +275,8 @@ struct Type {
   TypeKind kind; // 类型的种类
   size_t size; // sizeof()的值，即所占的字节数
 
-  Token *name; // 类型的名称
+  Token token; // 类型的词符
+  char *name; // 类型的名称
 
   size_t len; // 数组的长度
 
@@ -286,13 +287,13 @@ struct Type {
 
   Field *fields; // 类型的字段 
 
-  Type *next;
+  Type *next; // 用于存放全局的类型列表
 };
 
 struct Field {
   Field *next;
   Type *ty;
-  Token *name;
+  char *name;
   int offset;
 };
 
@@ -427,6 +428,7 @@ struct Box {
   Region *global;
   Region *region;
   Scope *scope;
+  Type *types;
 };
 
 void init_root_box(void);
@@ -442,6 +444,9 @@ Box *find_box(const char *name);
 
 // 查找模块中的值量
 Meta *box_lookup(Box *b, const char *name);
+
+// 查找模块中的类型
+Type *box_find_type(Box *b, const char *name);
 
 Box *all_boxes(void);
 

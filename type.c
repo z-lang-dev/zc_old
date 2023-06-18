@@ -3,9 +3,9 @@
 #include "zc.h"
 
 // 整数类型
-Type *TYPE_INT= &(Type){.kind = TY_INT,.size = INT_SIZE}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
+Type *TYPE_INT= &(Type){.kind = TY_INT,.size = INT_SIZE, .name = "int"}; // Z语言中int类型总是32位的，即4个字节。相当于i32。
 // 字符类型
-Type *TYPE_CHAR = &(Type){.kind = TY_CHAR, .size = CHAR_SIZE};
+Type *TYPE_CHAR = &(Type){.kind = TY_CHAR, .size = CHAR_SIZE, .name = "char"};
 
 bool is_ptr(Type *t) {
   if (!t) {

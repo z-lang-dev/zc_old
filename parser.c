@@ -61,6 +61,7 @@ static const char* const NODE_KIND_NAMES[] = {
   [ND_ARRAY] = "ARRAY",
   [ND_INDEX] = "INDEX",
   [ND_PATH] = "PATH",
+  [ND_TYPE] = "TYPE",
   [ND_UNKNOWN] = "UNKNOWN",
 };
 
@@ -269,6 +270,19 @@ void print_node(Node *node, int level) {
     printf(".");
     print_node(sub, level);
     print_level(level);
+    break;
+  }
+  case ND_TYPE: {
+    printf(" %s", node->name);
+    print_level(level);
+    if (node->type->fields) {
+      Field *f = node->type->fields;
+      while (f) {
+        print_level(level+1);
+        printf("%s %s;", f->name, f->ty->name);
+        f = f->next;
+      }
+    }
     break;
   }
   default:
@@ -544,24 +558,6 @@ static Node *expr(Parser *p) {
   return asn(p);
 }
 
-// TODO: 现在还没有实现自定义类型，因此只需要直接判断类型的名符是否符合预定义的这几种类型即可
-static Type *find_type(Token *tok) {
-  static char *names[] = {"int", "char"};
-  static Type *types[2];
-  types[0] = TYPE_INT;
-  types[1] = TYPE_CHAR;
-
-  for (size_t i = 0; i < sizeof(names) / sizeof(*names); i++) {
-    char* n = names[i];
-    if (strncmp(tok->pos, n, tok->len) == 0 && n[tok->len] == '\0') {
-      return types[i];
-    }
-  }
- 
-  return NULL;
-}
-
-
 static Type *array_type(Parser *p) {
   expect(p, TK_LBRACK, "'['");
   Type *typ = calloc(1, sizeof(Type));
@@ -603,7 +599,7 @@ static Type *type(Parser *p) {
     exit(1);
   }
   // 暂时只支持int和char类型
-  Type *typ = find_type(&p->cur_tok);
+  Type *typ = box_find_type(p->box, token_name(&p->cur_tok));
   advance(p);;
   return typ;
 }
@@ -695,7 +691,7 @@ static Node *type_decl(Parser *p) {
   // type name
   Type *typ = calloc(1, sizeof(Type));
   typ->kind = TY_TYPE;
-  typ->name = &p->cur_tok;
+  typ->name = token_name(&p->cur_tok);
   advance(p);
 
   // fields
@@ -712,7 +708,7 @@ static Node *type_decl(Parser *p) {
       expect_expr_sep(p);
     }
     cur = cur->next = calloc(1, sizeof(Field));
-    cur->name = &p->cur_tok;
+    cur->name = token_name(&p->cur_tok);
     advance(p);
     Type *field_typ = type(p);
     cur->ty = field_typ;
@@ -723,7 +719,14 @@ static Node *type_decl(Parser *p) {
 
   Node *node = new_node(p, ND_TYPE);
   node->type = typ;
-  node->name = token_name(typ->name);
+  node->name = typ->name;
+  printf("DEBUG: type_decl name: %s\n", node->name);
+  print_node(node, 0);
+
+  if (!match(p, TK_RCURLY)) {
+    error_tok(&p->cur_tok, "expected '}' for type decl \n");
+    exit(1);
+  };
   return node;
 }
 
